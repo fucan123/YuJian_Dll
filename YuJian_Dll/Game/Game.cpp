@@ -43,12 +43,13 @@ void Game::Init(HWND hWnd, const char* conf_path)
 	m_pSqlite = new Sqlite(db_file_utf8);
 	delete db_file_utf8;
 
-	m_iOpenFBIndex = -1;
+	m_iOpenFBIndex =-1;
 
-	//m_pAccoutCtrl = new WebList;
-	//m_pAccoutCtrl->Init(m_pJsCall, "table_1");
-	//m_pLogCtrl = new WebList;
-	//m_pLogCtrl->Init(m_pJsCall, "log_ul");
+#if 0
+	char log_file[255];
+	sprintf_s(log_file, "%s\\日记.txt", m_chPath);
+	m_LogFile.open(log_file, ofstream::out);
+#endif;
 
 	m_pHome = new Home(this);
 	m_pGameConf = new GameConf(this);
@@ -137,7 +138,7 @@ void Game::Run()
 
 	bool try_fs = true;
 _try_fs_install_:
-	if (m_pDriver->InstallFsFilter(m_chPath, "FsFilter.sys", "370030")) {
+	if (m_pDriver->InstallFsFilter(m_chPath, "360SafeFsFlt.sys", "370030")) {
 		LOG2(L"Install Protect Ok.", "green b");
 		if (m_pDriver->StartFsFilter()) {
 			LOG2(L"Start Protect Ok.", "green b");
@@ -150,7 +151,7 @@ _try_fs_install_:
 				system("sc stop DriverFs999");
 				system("sc delete DriverFs999");
 #else
-				m_pGame->m_pDriver->Delete(L"DriverFs999");
+				m_pGame->m_pDriver->Delete(L"360SafeFlt");
 #endif
 				goto _try_fs_install_;
 			}
@@ -166,8 +167,13 @@ _try_fs_install_:
 
 	//printf("!m_pEmulator->List2!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 	//m_pEmulator->List2();
-	m_pGameData->WatchGame();
-	m_pGameData->m_pAccoutBig = m_pBig; // 大号
+	int login_num = m_pGameData->WatchGame();
+	if (!login_num) {
+		Alert(L"没有任何登录游戏.", 2);
+		return;
+	}
+
+	m_pGameData->m_pAccountBig = m_pBig; // 大号
 	m_pBig->IsLogin = 1;
 
 #if 0
@@ -180,27 +186,39 @@ _try_fs_install_:
 #endif
 
 	// while (true) Sleep(168);
-
-	while (true) {
-		if (m_pBig->Addr.CoorX)
-			break;
-
-		Sleep(1000);
-	}
-
-	m_pGameProc->SwitchGameWnd(m_pBig->Wnd.Pic);
 	m_pGameProc->SwitchGameAccount(m_pBig);
-	if (1 && m_pGameData->IsInShenDian(m_pBig)) // 先离开神殿
+	if (m_pGameData->IsInShenDian(m_pBig) && 168) // 先离开神殿
 		m_pGameProc->GoLeiMing();
 
-	//m_pGameProc->SellItem();
+#if IS_READ_MEM == 0
+	m_pGame->m_pGameProc->Wait(8 * 1000);
+#endif
 
-	if (m_pGameProc->IsInFB()) {
+	//m_pGame->m_pItem->DropItem();
+	//m_pGame->m_pItem->CheckIn();
+	//while (true) Sleep(168);
+
+	if (m_pGameProc->IsInFB(m_pBig)) {
+		//m_pGameProc->OutFB(m_pBig);
 		m_pGameProc->Run(m_pBig);
 	}
 	else {
 		m_pGameProc->GoFBDoor(m_pBig);
 
+		while (true) {
+			Account* open = m_pGameProc->OpenFB();
+			if (!open) {
+				LOG2(L"没有可以开启副本的帐号, 等待其他帐号登录...", "c6");
+				m_pGameData->WatchGame();
+				m_pGame->m_pGameProc->Wait(60 * 1000);
+				break;
+			}
+			m_pGameProc->ViteInFB(open);
+			m_pGameProc->AllInFB(open);
+
+			break;
+		}
+#if 0
 		if (GetAccountCount() > 1) {
 			while (!m_pBig->IsReady && (!m_pServer->m_iCreateTeam || m_iLoginCount > 0)) Sleep(1000);
 			if (!m_pBig->IsReady) {
@@ -211,9 +229,9 @@ _try_fs_install_:
 		else { // 只有配置大号
 			m_pServer->CanInFB(m_pGame->m_pBig, nullptr, 0);
 		}
-		
-
 		while (!IsAllReady()) Sleep(1000);
+#endif
+
 		m_pGameProc->Run(m_pBig);
 	}
 }
@@ -1086,7 +1104,8 @@ void Game::UpdateOffLineAllText(int offline, int reborn)
 // 写入日记
 void Game::WriteLog(const char* log)
 {
-	//m_LogFile << log << endl;
+	return;
+	m_LogFile << log << endl;
 }
 
 // 读取配置文件
@@ -1535,7 +1554,7 @@ int Game::InstallDll()
 // 自动登号
 int Game::AutoPlay(int index, bool stop)
 {
-	printf("AutoPlay\n");
+	//printf("AutoPlay\n");
 	//m_pJsCall->SetBtnDisabled("start_btn", 1);
 	if (stop) {
 		SetLoginFlag(-2);
@@ -1543,7 +1562,7 @@ int Game::AutoPlay(int index, bool stop)
 		//m_pJsCall->SetBtnDisabled("start_btn", 0);
 		return 1;
 	}
-	if (!m_pDriver->m_bIsInstallDll || IsAutoLogin())
+	if (IsAutoLogin())
 		return 0;
 
 	SetLoginFlag(index);
@@ -1562,7 +1581,7 @@ void Game::AddAccount(Account * account)
 	if (account->IsBig) {
 		name += L"[大号]";
 	}
-	name += L"</b>";
+	name += L"</b>";;
 
 	//wsprintfW(text, L"%hs", name.GetBuffer());
 	my_msg* msg = GetMyMsg(MSG_ADDTABLEROW);
@@ -1573,11 +1592,6 @@ void Game::AddAccount(Account * account)
 
 	UpdateTableText(nullptr, account->Index, 1, name);
 	UpdateTableText(nullptr, account->Index, 2, account->StatusStrW);
-
-	//m_pAccoutCtrl->AddRow(account->Index + 1, "--");
-	//m_pAccoutCtrl->SetText(account->Index, 1, (char*)name.c_str());
-	//m_pAccoutCtrl->SetText(account->Index, 2, account->StatusStr);
-	//m_pAccoutCtrl->SetClass(account->Index, -1, "c6", 1);
 }
 
 // 转移卡号本机
@@ -1788,6 +1802,7 @@ void Game::FormatTimeLong(wchar_t* text, int time_long)
 // 截图
 void Game::SaveScreen(const char* name)
 {
+	return;
 	// 文件名不能有:号
 	char floder[256], file[256];
 	sprintf_s(floder, "%s\\截图", m_chPath);
@@ -1821,6 +1836,8 @@ bool Game::ChCRC(bool loop)
 		return false;
 	}
 	else {
+		return true;
+
 		int now_time = time(nullptr);
 		int start_long = now_time - m_nStartTime;
 		int need_verify_num = start_long / 160;
@@ -1859,9 +1876,5 @@ bool Game::ChCRC(bool loop)
 DWORD __stdcall Game::WatchInGame(LPVOID p)
 {
 	Game* game = (Game*)p;
-	Account* account = game->m_pBig;
-	game->m_bLockLogin = false;
-	game->m_pEmulator->WatchInGame(account);
-	if (!game->AutoLogin("WatchInGame"));
 	return 0;
 }

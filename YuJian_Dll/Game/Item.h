@@ -41,28 +41,26 @@ public:
 	bool IsNeedUseYaoBao();
 	// 背包是否打开
 	bool BagIsOpen();
-	// 物品操作按钮是否打开
-	bool ItemBtnIsOpen(int index=0);
-	// 等待物品操作按钮出现
-	bool WaitForItemBtnOpen();
-	// 拆分操作按钮是否出现
-	bool ChaiFeiBtnIsOpen();
-	// 关闭拆分框
-	void CloseChaiFeiBox();
+	// 背包是否需要翻页
+	bool BagNeedPageDown();
+	// 获取背包物品
+	void ReadBagItem(ITEM_TYPE items[], int length);
+	// 仓库是否需要翻页
+	bool StorageNeedPageDown();
+	// 获取仓库物品
+	void ReadStorageItem(ITEM_TYPE items[], int length);
+	// 获取背包物品点击位置(index=物品所在位置)
+	void GetBagClickPos(int index, int& click_x, int& click_y);
 	// 点击按钮捡东西
 	bool PickUpItemByBtn();
-	// 仓库存钱按钮是否打开
-	bool SaveMoneyBtnIsOpen();
-	// 仓库解锁栏位按钮是否打开
-	bool StorageAddBtnIsOpen();
 	// 捡物
 	int PickUpItem(const char* name, int x, int y, int x2, int y2, int pickup_num=10);
 	// 等待捡起物品
-	bool WaitForPickUpItem(DWORD wait_ms=3500);
+	bool WaitForPickUpItem(DWORD wait_ms=3500, DWORD sleep_ms=500);
 	// 获取地面物品坐标
 	int GetGroundItemPos(const char* name, int x, int y, int x2, int y2, int& pos_x, int& pos_y, char* pick_name);
 	// 丢弃药包
-	int  DropItem(ComImgIndex index, int live_count=6, DWORD* ms=nullptr);
+	int  DropItem(DWORD* ms=nullptr);
 	// 使用物品
 	void UseItem(const char* name, int x, int y);
 	// 丢弃物品
@@ -70,17 +68,17 @@ public:
 	// 售卖物品
 	int  SellItem(ConfItemInfo* items, DWORD length);
 	// 售卖物品
-	void SellItem(int x, int y);
+	void SellItem(const char* name, int x, int y);
 	// 获取物品操作按钮位置
 	void GetItemBtnPos(int& x, int& y, int index);
 	// 存入仓库
-	void CheckIn(ConfItemInfo* items, DWORD length);
+	void CheckIn();
 	// 取出仓库
 	int CheckOut(ConfItemInfo* items, DWORD length);
 	// 取出一个仓库物品
 	int CheckOutOne(const char* name, bool open=false, bool close=false);
 	// 获取背包物品数量
-	int GetBagCount(ComImgIndex index);
+	int GetBagItemCount(const char* name);
 	// 获取快捷栏物品数量
 	int GetQuickYaoOrBaoNum(int& yaobao, int& yao, _account_* account=nullptr);
 	// 切换到技能快捷栏

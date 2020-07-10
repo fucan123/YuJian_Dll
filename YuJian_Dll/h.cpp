@@ -37,7 +37,7 @@ Game game;
 // 初始化游戏机
 DLLEXPORT void WINAPI EntryIn(HWND hWnd, const char* conf_path)
 {
-#if 1
+#if 0
 	AllocConsole();
 	freopen("CON", "w", stdout);
 	//printf("Game_Init:%p\n", Game_Init);
@@ -94,7 +94,7 @@ void WINAPI Game_Relase()
 void WINAPI Game_Pause(bool v)
 {
 	HWND hWndTop = ::GetForegroundWindow();
-	if (game.m_pBig && game.m_pBig->Mnq) {
+	if (game.m_pBig) {
 		if (1) {
 			game.m_pGameProc->m_bPause = v;
 

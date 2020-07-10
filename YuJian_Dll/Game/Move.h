@@ -1,9 +1,9 @@
 #pragma once
 #include <Windows.h>
 
-#define ONE_COOR_PIX     30   // 一坐标占用像数
-#define ONE_MAX_MOV_COOR 15    // 一次最大可移动8距离坐标
-#define ONE_MOV_MAX_MS   1000 // 一次移动最大允许时间(毫秒)
+#define ONE_COOR_PIX     30      // 一坐标占用像数
+#define ONE_MAX_MOV_COOR 0x0E    // 一次最大可移动8距离坐标
+#define ONE_MOV_MAX_MS   1000    // 一次移动最大允许时间(毫秒)
 
 struct _account_;
 class Game;
@@ -15,16 +15,20 @@ public:
 
 	// 初始化数据
 	void InitData();
+	// 移动到目的地
+	int  RunEnd(DWORD x, DWORD y, _account_* account, DWORD time_out_ms=0);
 	// 移动
 	int  Run(DWORD x, DWORD y, _account_* account, bool check_time=false);
+	// 移点
+	int  RunClick(DWORD x, DWORD y, DWORD click_x, DWORD click_y, _account_* account, bool check_time);
 	// 设置移动位置
-	void SetMove(DWORD x, DWORD y, _account_* account);
+	void SetMove(DWORD x, DWORD y, _account_* account, bool set_mv_time=true);
 	// 清除移动数据
 	void ClearMove();
 	// 是否达到终点
 	bool IsMoveEnd(_account_* account);
 	// 是否移动
-	bool IsMove(_account_* account);
+	int  IsMove(_account_* account);
 	// 计算实际要移动要的坐标
 	void CalcRealMovCoor(int& mv_x, int& mv_y, _account_* account);
 	// 制作点击坐标x

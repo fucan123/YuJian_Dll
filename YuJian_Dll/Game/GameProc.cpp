@@ -58,6 +58,7 @@ void GameProc::InitData()
 	m_pStepLastMove = nullptr;
 	m_pStepRecord = nullptr;
 
+	m_bReborn = true;
 	m_bIsRecordStep = false;
 	m_bClearKaiRui = false;
 	m_bIsResetRecordStep = false;
@@ -75,7 +76,7 @@ void GameProc::InitData()
 	m_nReMoveCountLast = 0;
 	m_nYaoBao = 0;
 	m_nYao = 0;
-	m_nLiveYaoBao = 6;
+	m_nLiveYaoBao = 8;
 	m_nLiveYao = 6;
 
 	m_nRevivePetTime = 0;
@@ -111,6 +112,7 @@ void GameProc::SwitchGameWnd(HWND hwnd)
 void GameProc::SwitchGameAccount(_account_ * account)
 {
 	m_pAccount = account;
+	SwitchGameWnd(account->Wnd.Game);
 }
 
 // 鼠标移动到游戏窗口位置
@@ -149,6 +151,27 @@ void GameProc::SetForegroundWindow(HWND hwnd)
 // 神殿去雷鸣大陆流程
 void GameProc::GoLeiMing()
 {
+#if 0
+	for (int i = 0; i < 10; i++) {
+		printf("%d:%d-%d\n", i + 1, 10 + i * 34, 20 + i* 34);
+	}
+	//m_pGame->m_pItem->CheckOut(m_pGame->m_pGameConf->m_stSell.Sells, m_pGame->m_pGameConf->m_stSell.Length);
+	while (false) {
+		m_pGame->m_pMagic->MagicIsOut("虚无空间");
+		printf("虚无空间:%d\n", m_pGame->m_pMagic->m_nPixelCount);
+		m_pGame->m_pMagic->MagicIsOut("星陨");
+		printf("星陨:%d\n", m_pGame->m_pMagic->m_nPixelCount);
+		m_pGame->m_pMagic->MagicIsOut("影魂契约");
+		printf("影魂契约:%d\n", m_pGame->m_pMagic->m_nPixelCount);
+		m_pGame->m_pMagic->MagicIsOut("最终审判");
+		printf("最终审判:%d\n", m_pGame->m_pMagic->m_nPixelCount);
+
+		Sleep(3000);
+	}
+	
+	m_pGame->m_pItem->GetQuickYaoOrBaoNum(m_nYaoBao, m_nYao, m_pAccount);
+	while (true) Sleep(168);
+#endif
 #if 1
 	m_pGameStep->ResetStep(0, 0x02);
 	while (ExecStep(m_pGameStep->m_GoLeiMingStep)); // 出神殿
@@ -231,27 +254,26 @@ _account_* GameProc::AskXiangLian()
 {
 	Account* account = nullptr;
 	int max = 0;
-	m_pGame->m_pEmulator->List2();
-	for (int i = 0; i < m_pGame->m_pEmulator->GetCount(); i++) {
-		MNQ* m = m_pGame->m_pEmulator->GetMNQ(i);
-		if (!m || !m->Account) // 没有相互绑定
+	for (int i = 0; i < m_pGame->m_AccountList.size(); i++) {
+		_account_* p = m_pGame->m_AccountList[i];
+		if (!m_pGame->IsOnline(p))
 			continue;
-
-		if (!m->Account->IsReadXL) { // 没有读取项链
-			SwitchGameWnd(m->Wnd);
-			SetForegroundWindow(m->WndTop);
+			
+		if (!p->IsReadXL) { // 没有读取项链
+			SwitchGameAccount(p);
+			::SetForegroundWindow(p->Wnd.Game);
 			Sleep(500);
-			m->Account->XL = m_pGame->m_pItem->GetBagCount(CIN_XiangLian);
-			m->Account->IsReadXL = 1;
+			p->XL = m_pGame->m_pItem->GetBagItemCount("爱娜祈祷项链");
+			p->IsReadXL = 1;
 		}
 		
-		if (m->Account->XL > max) {
-			max = m->Account->XL;
-			account = m->Account;
+		if (p->XL > max) {
+			max = p->XL;
+			account = p;
 		}
 
-		DbgPrint("%s有项链%d条 %08X\n", m->Account->Name, m->Account->XL, m->Wnd);
-		LOGVARN2(64, "green", L"%hs有项链%d条 %08X", m->Account->Name, m->Account->XL, m->Wnd);
+		DbgPrint("%s有项链%d条 %08X\n", p->Name, p->XL, p->Wnd.Game);
+		LOGVARN2(64, "c0", L"%hs有项链<b class=\"red\">%d</b>条", p->Name, p->XL);
 	}
 
 	return account;
@@ -260,7 +282,10 @@ _account_* GameProc::AskXiangLian()
 // 去副本门口
 void GameProc::GoFBDoor(_account_* account)
 {
+	DbgPrint("%hs去副本门口.\n", account->Name);
+	LOGVARN2(32, "c0 b", L"%hs去副本门口.", account->Name);
 	::SetForegroundWindow(account->Wnd.Game);
+
 	if (m_pGame->m_pGameData->IsInFBDoor(account)) {
 		LOG2(L"已经在副本门口", "green b");
 		return;
@@ -271,6 +296,7 @@ void GameProc::GoFBDoor(_account_* account)
 		if (m_bPause || m_bAtFB) 
 			break;
 
+		::SetForegroundWindow(account->Wnd.Game);
 		if (++i == 10)
 			m_pGame->SaveScreen("去副本门口");
 
@@ -290,134 +316,210 @@ void GameProc::GoFBDoor(_account_* account)
 // 进入副本
 _account_* GameProc::OpenFB()
 {
-	if (IsInFB()) {
-		LOG2(L"已经在副本", "green b");
-		return m_pGame->m_pBig;
-	}
-
-	_account_* account = m_pGame->m_pBig;
+	_account_* account = GetOpenFBAccount();
 	if (!account) {
 		DbgPrint("没有人有项链, 无法进入副本\n");
 		LOG2(L"没有人有项链, 无法进入副本", "red");
 		return nullptr;
 	}
 
+	::SetForegroundWindow(account->Wnd.Game);
+	SwitchGameAccount(account);
+	m_pGame->m_pButton->HideActivity(account->Wnd.Game);
+
+	if (IsInFB(account)) {
+		LOG2(L"已经在副本", "green b");
+		return m_pGame->m_pBig;
+	}
+
 	wchar_t log[64];
 	DbgPrint("%s去开副本[%s], 背包项链数量:%d\n", account->Name, account->IsBig?"大号":"小号", account->XL);
-	LOGVARP2(log, "green", L"%hs去开副本[%hs], 背包项链数量:%d\n", account->Name, account->IsBig ? "大号" : "小号", account->XL);
+	LOGVARP2(log, "c0 b", L"%hs去开副本[%hs], 背包项链数量:%d", account->Name, account->IsBig ? "大号" : "小号", account->XL);
 
 	GoFBDoor(account);
-	
-	int i;
-_start_:
-	if (m_bPause)
-		return account;
 
-	SwitchGameWnd(account->Mnq->Wnd);
-	DbgPrint("%s去副本门口指定坐标\n", account->Name);
-	LOGVARP2(log, "c0", L"%hs去副本门口指定坐标", account->Name);
-	//m_pGame->m_pMove->RunEnd(863, 500, account); //872, 495 这个坐标这里点击副本门
-	Sleep(1000);
+	_npc_coor_ npcCoor;
+	npcCoor.Point[0].MvX = 865;
+	npcCoor.Point[0].MvY = 503;
+	npcCoor.Point[0].ClkX = 930;
+	npcCoor.Point[0].ClkY = 266;
+	npcCoor.Point[0].ClkX2 = 950;
+	npcCoor.Point[0].ClkY2 = 273;
+	npcCoor.Length = 1;
 
-	DbgPrint("%s点击副本门\n", account->Name);
-	DWORD open_x = MyRand(810, 828), open_y = MyRand(280, 295);
-	LOGVARP2(log, "c0", L"%hs点击副本门(%d,%d)", account->Name, open_x, open_y);
-
-	CloseTipBox();
-	Click(open_x, open_y); //800, 323 点击副本门
-	Sleep(500);
-	//return account;
-
-	if (!m_pGame->m_pTalk->WaitTalkOpen(0x00)) {
-		if (m_pGame->m_pTalk->IsNeedCheckNPC()) {
-			DbgPrint("选择第一个NPC\n");
-			LOG2(L"选择第一个NPC", "c0");
-			m_pGame->m_pTalk->SelectNPC(0x00);
-		}
-		if (!m_pGame->m_pTalk->WaitTalkOpen(0x00)) {
-			DbgPrint("NPC对话框未打开, 重新再次对话\n");
-			LOG2(L"NPC对话框未打开, 重新再次对话", "c0");
-			goto _start_;
-		}
-	}
-	Sleep(1000);
-	m_pGame->m_pTalk->Select(account->IsBig ? 0x00 : 0x01); // 大号用钥匙, 小号用项链
-	Sleep(1000);
-	if (CloseTipBox()) {
-		goto _start_;
-	}
-	m_pGame->m_pTalk->Select(0x00); // 确定进入里面
-	Sleep(1000);
-	if (CloseTipBox()) {
-		goto _start_;
-	}
-	else if (!m_pGame->m_pTalk->WaitTalkClose(0x00)) {
-		m_pGame->m_pTalk->Select(0x00);
-		m_pGame->m_pTalk->WaitTalkClose(0x00);
-	}
-
-	for (i = 0; true; i++) {
+	while (true) {
 		while (m_bPause) Sleep(500);
-		if (IsInFB()) {
-			DbgPrint("%s已经进入副本\n", account->Name);
-			LOGVARP2(log, "c0", L"%hs已经进入副本\n", account->Name);
-			break;
-		}
-		if (i == 15)
-			goto _start_;
 
-		DbgPrint("%s等待进入副本\n", account->Name);
-		LOGVARP2(log, "c0", L"%hs等待进入副本", account->Name);
-		Sleep(1000);
+		// 原地复活
+		m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_REBORN_AT, "XP1");
+
+		::SetForegroundWindow(account->Wnd.Game);
+		CloseTipBox();
+
+		DWORD pos_x, pos_y;
+		m_pGame->m_pGameData->ReadCoor(&pos_x, &pos_y, account);
+		int click_x, click_y;
+		GetNPCClickPos(&npcCoor, pos_x, pos_y, (DWORD&)click_x, (DWORD&)click_y);
+
+		if (click_x > 0 && click_x < 1440 && click_y > 0 && click_y < 600) {
+			LOGVARP2(log, "c6", L"(%hs)点击卡利亚堡传送门(%d,%d).", account->Name, click_x, click_y);
+			m_pGame->m_pButton->ClickPic(account->Wnd.Game, account->Wnd.Pic, click_x, click_y);
+			if (!m_pGame->m_pTalk->WaitTalkOpen(account->Wnd.Pic)) {
+				if (IsInFB(account)) {
+					DbgPrint("%s已经进入副本\n", account->Name);
+					LOGVARP2(log, "c0 b", L"(%hs)已经进入副本\n", account->Name);
+					break;
+				}
+
+				LOGVARP2(log, "red", L"(%hs)对话没有打开.", account->Name);
+				continue;
+			}
+
+			if (IsBigOpenFB()) {
+				m_pGame->m_pTalk->Select("钥匙开启入口", account->Wnd.Pic, true);
+			}
+			else {
+				m_pGame->m_pTalk->Select("项链开启入口", account->Wnd.Pic, true);
+			}
+
+			Sleep(800);
+			m_pGame->m_pTalk->Select("进入卡利亚堡", account->Wnd.Pic, true);
+			Sleep(1000);
+			if (m_pGame->m_pTalk->NPCTalkStatus(account->Wnd.Pic)) {
+				m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "C");
+				Sleep(500);
+				continue;
+			}
+			if (CloseTipBox()) {
+				Sleep(500);
+				continue;
+			}	
+		}
+		
+		for (int i = 0; i < 6; i++) {
+			while (m_bPause) Sleep(500);
+			if (IsInFB(account)) {
+				DbgPrint("%s已经进入副本\n", account->Name);
+				LOGVARP2(log, "c0 b", L"(%hs)已经进入副本\n", account->Name);
+
+				if (--account->XL < 0)
+					account->XL = 0;
+
+				return account;
+			}
+
+			DbgPrint("%s等待进入副本(%d,%d)\n", account->Name, pos_x, pos_y);
+			LOGVARP2(log, "c6", L"(%hs)等待进入副本(%d,%d)...", account->Name, pos_x, pos_y);
+			Sleep(1000);
+		}
 	}
 
 	return account;
 }
 
+// 所有出副本big=大号要出去否
+void GameProc::AllOutFB(bool big)
+{
+	for (int i = 0; i < m_pGame->m_AccountList.size(); i++) {
+		_account_* p = m_pGame->m_AccountList[i];
+		if (!m_pGame->IsOnline(p))
+			continue;
+		if (!big && p->IsBig) // 大号不出去
+			continue;
+
+		OutFB(p);
+	}
+}
+
 // 出副本
 void GameProc::OutFB(_account_* account)
 {
-	for (int i = 1; i < 1000; i++) {
-		DbgPrint("%s出副本(%d)\n", account->Name, i);
-		LOGVARN2(64, "c0", L"%hs出副本(%d)\n", account->Name, i);
+	wchar_t log[64];
+	::SetForegroundWindow(account->Wnd.Game);
+	LOGVARP2(log, "c0", L"(%hs)准备离开副本.", account->Name);
 
-		int num = MyRand(1, 3);
-		if (num == 1) {
-			//m_pGame->m_pMove->RunEnd(890, 1100, account, true, 2000); // 移动到固定地点
-			Sleep(1000);
-			Click(190, 503, 195, 505); // 点击NPC
-		}
-		else if (num == 2) {
-			//m_pGame->m_pMove->RunEnd(889, 1102, account, true, 2000); // 移动到固定地点
-			Sleep(1000);
-			Click(285, 490, 296, 500); // 点击NPC
-		}
-		else {
-			//m_pGame->m_pMove->RunEnd(890, 1100, account, true, 2000); // 移动到固定地点
-			Sleep(1000);
-			Click(345, 426, 360, 450); // 点击NPC
+	_npc_coor_ npcCoor;
+	npcCoor.Point[0].MvX = 890;
+	npcCoor.Point[0].MvY = 1100;
+	npcCoor.Point[0].ClkX = 268;
+	npcCoor.Point[0].ClkY = 600;
+	npcCoor.Point[0].ClkX2 = 278;
+	npcCoor.Point[0].ClkY2 = 606;
+	npcCoor.Length = 1;
+	
+	int reborn_num = 0;
+	while (true) {
+		while (m_bPause) Sleep(500);
+
+		::SetForegroundWindow(account->Wnd.Game);
+		CloseTipBox();
+
+		if (reborn_num++ < 300) {
+			LOGVARP2(log, "c6", L"(%hs)等待角色复活...", account->Name);
+			m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_REBORN, "XP2");
+			Wait(2 * 1000);
 		}
 		
+		if (000 && m_pGame->m_pMove->RunEnd(890, 1100, account) != -1)
+			Sleep(600);
 
-		m_pGame->m_pTalk->WaitTalkOpen(0x00);
-		Sleep(1000);
-		Click(67, 360, 260, 393);  // 选项0 出副本
-		m_pGame->m_pTalk->WaitTalkOpen(0x00);
-		Sleep(1000);
-		Click(67, 360, 260, 393);  // 选项0 我要离开这里
-		m_pGame->m_pTalk->WaitTalkOpen(0x00);
-		Sleep(1000);
+		int click_x = MyRand(268, 278), click_y = MyRand(600, 606);
 
-		if (m_pGame->m_pGameData->IsInFBDoor()) // 出去了
-			break;
+		DbgPrint("%d,%d.\n", click_x, click_y);
+		if (click_x > 0 && click_x < 800 && click_y > 0 && click_y < 900) {
+			LOGVARP2(log, "c6", L"(%hs)点击卡利亚堡传送门出去(%d,%d).", account->Name, click_x, click_y);
+			m_pGame->m_pButton->ClickPic(account->Wnd.Game, account->Wnd.Pic, click_x, click_y);
+			if (!m_pGame->m_pTalk->WaitTalkOpen(account->Wnd.Pic)) {
+				m_pGame->m_pItem->GoFBDoor();
+				Sleep(1000);
+
+				if (m_pGame->m_pGameData->IsInFBDoor(account)) {
+					DbgPrint("%s已经在副本外\n", account->Name);
+					LOGVARP2(log, "c0 b", L"(%hs)已经在副本外\n", account->Name);
+					break;
+				}
+
+				LOGVARP2(log, "red", L"(%hs)对话没有打开.", account->Name);
+				continue;
+			}
+
+
+			m_pGame->m_pTalk->Select("离开卡利亚堡[外]", account->Wnd.Pic, true);
+			Sleep(800);
+			m_pGame->m_pTalk->Select("我要离开[外]", account->Wnd.Pic, true);
+			Sleep(500);
+			m_pGame->m_pTalk->Select("最后离开.确定", account->Wnd.Pic, true);
+			Sleep(1000);
+		}
+		
+		for (int i = 0; i < 5; i++) {
+			while (m_bPause) Sleep(500);
+			if (m_pGame->m_pGameData->IsInFBDoor(account)) {
+				DbgPrint("%s已经在副本外\n", account->Name);
+				LOGVARP2(log, "c0 b", L"(%hs)已经在副本外\n", account->Name);
+				return;
+			}
+
+			DbgPrint("%s等待出去副本\n", account->Name);
+			LOGVARP2(log, "c6", L"(%hs)等待出去副本...", account->Name);
+			Sleep(1000);
+		}
 	}
-	
 }
 
 // 获取开启副本帐号
 _account_ * GameProc::GetOpenFBAccount()
 {
 	return IsBigOpenFB() ? m_pGame->GetBigAccount() : AskXiangLian();
+}
+
+// 获取时间小时
+int GameProc::GetHour()
+{
+	SYSTEMTIME stLocal;
+	::GetLocalTime(&stLocal);
+
+	return stLocal.wHour;;
 }
 
 // 是否由大号开启副本
@@ -440,8 +542,6 @@ void GameProc::Exec(_account_* account)
 // 运行
 void GameProc::Run(_account_* account)
 {
-	SwitchGameWnd(account->Wnd.Pic);
-	SwitchGameAccount(account);
 	DbgPrint("刷副本帐号:%s(%08X)\n", account->Name, m_hWndGame);
 	LOGVARN2(64, "green b", L"刷副本帐号:%hs(%08X)\n", account->Name, m_hWndGame);
 
@@ -458,7 +558,8 @@ void GameProc::Run(_account_* account)
 start:
 	Exec(account);
 	while (true) {
-		if (IsInFB()) {
+		if (IsInFB(account)) {
+			SwitchGameAccount(account);
 			ExecInFB();
 		}
 		Sleep(2000);
@@ -571,67 +672,70 @@ void GameProc::InTeam(_account_* account)
 	LOGVARP2(log, "blue b", L"%hs完成同意入队", account->Name);
 }
 
+// 邀请进入副本
+void GameProc::ViteInFB(_account_* account)
+{
+	wchar_t log[64];
+	::SetForegroundWindow(account->Wnd.Game);
+	// 670,545 675,550
+	LOGVARP2(log, "c0", L"(%hs)邀请进入副本.", account->Name);
+	LOGVARP2(log, "c6", L"(%hs)等待确定邀请按钮...", account->Name);
+	while (true) {
+		if (m_pGame->m_pButton->CheckButton(account->Wnd.Game, BUTTON_ID_SURE))
+			break;
+
+		Sleep(1000);
+	}
+	Wait(5 * 1000);
+
+	LOGVARP2(log, "c0", L"(%hs)打勾邀请选框.", account->Name);
+	m_pGame->m_pButton->ClickPic(account->Wnd.Game, account->Wnd.Pic, MyRand(670, 675), MyRand(545, 550));
+	Wait(1 * 1000);
+	
+	for (int i = 0; i < 5; i++) {
+		if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_SURE)) {
+			LOGVARP2(log, "c0 b", L"(%hs)邀请队友进入副本完成.", account->Name);
+			return;
+		}
+	}
+
+	LOGVARP2(log, "reb", L"(%hs)无法邀请队友进入副本.", account->Name);
+}
+
 void GameProc::InFB(_account_* account)
 {
 	wchar_t log[64];
-	DbgPrint("%s同意进副本\n", account->Name);
-	LOGVARP2(log, "blue b", L"%d同意进副本", account->Name);
-	for (int i = 1; i < 2; i++) {
-		DbgPrint("%d.设置窗口置前:%08X\n", i, account->Mnq->WndTop);
-		LOGVARP2(log, "c0", L"%d.设置窗口置前:%08X", i, account->Mnq->WndTop);
-		SetForegroundWindow(account->Mnq->WndTop);
+	DbgPrint("%s准备同意进入\n", account->Name);
+	LOGVARP2(log, "c0 b", L"%hs准备同意进入", account->Name);
+
+	for (int i = 1; i <= 5; i++) {
+		if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_INFB, "同意")) {
+			DbgPrint("%s完成同意进副本\n", account->Name);
+			LOGVARP2(log, "c0 b", L"%hs完成同意进副本", account->Name);
+			return;
+		}
+
+		LOGVARN2(32, "c6", L"%hs等待接收邀请(%d)...", account->Name, i);
 		Sleep(1000);
-
-		if (i & 0x01 == 0x00) {
-			RECT rect;
-			::GetWindowRect(account->Mnq->WndTop, &rect);
-			MoveWindow(account->Mnq->WndTop, 6, 100, rect.right - rect.left, rect.bottom - rect.top, FALSE);
-			Sleep(1000);
-			::GetWindowRect(account->Mnq->WndTop, &rect);
-			mouse_event(MOUSEEVENTF_LEFTDOWN, rect.left + 3, rect.top + 3, 0, 0); //点下左键
-			mouse_event(MOUSEEVENTF_LEFTUP, rect.left + 3, rect.top + 3, 0, 0); //点下左键
-			Sleep(1000);
-		}
-		
-		HWND top = GetForegroundWindow();
-		if (top == account->Mnq->WndTop || top == account->Mnq->Wnd)
-			break;
-	}
-	int max_i = 10;
-	for (int i = 1; i <= max_i; i++) {
-		if (i > 1) {
-			DbgPrint("%s第(%d/%d)次尝试同意进副本\n", account->Name, i, max_i);
-			LOGVARP2(log, "c6", L"%hs第(%d/%d)次尝试同意进副本", account->Name, i, max_i);
-		}
-
-		SwitchGameAccount(account);
-		SwitchGameWnd(account->Mnq->Wnd);
-		SetForegroundWindow(account->Mnq->WndTop);
-		Sleep(500);
-		AgreenMsg("进副本图标");
-		Sleep(5000);
-
-		if (m_bPause || IsInFB(account))
-			break;
 	}
 	
-	DbgPrint("%s完成同意进副本\n", account->Name);
-	LOGVARP2(log, "blue b", L"%hs完成同意进副本", account->Name);
+	DbgPrint("%s进副本失败.\n", account->Name);
+	LOGVARP2(log, "red b", L"%hs进副本失败.", account->Name);
 
 }
 
 // 所有人进副本
 void GameProc::AllInFB(_account_* account_open)
 {
-	int count = m_pGame->m_pEmulator->List2();
-	for (int i = 0; i < count; i++) {
-		MNQ* m = m_pGame->m_pEmulator->GetMNQ(i);
-		if (!m || !m->Account) // 没有相互绑定
-			continue;
-		if (account_open == m->Account)
+	for (int i = 0; i < m_pGame->m_AccountList.size(); i++) {
+		_account_* p = m_pGame->m_AccountList[i];
+		if (!m_pGame->IsOnline(p))
 			continue;
 
-		InFB(m->Account);
+		if (account_open == p) // 自己开的副本
+			continue;
+
+		InFB(p);
 	}
 }
 
@@ -665,16 +769,19 @@ int GameProc::AgreenMsg(const char* name, int icon_index, bool click, HWND hwnd)
 // 是否在副本
 bool GameProc::IsInFB(_account_* account)
 {
-    return true;
-	DWORD x = 0, y = 0;
-	m_pGame->m_pGameData->ReadCoor(&x, &y, account);
-	if (x >= 882 && x <= 930 && y >= 1055 && y < 1115) // 刚进副本区域
-		return true;
+	if (!account || !account->Wnd.Map) {
+		DWORD x = 0, y = 0;
+		m_pGame->m_pGameData->ReadCoor(&x, &y, account);
+		if (x >= 882 && x <= 930 && y >= 1055 && y < 1115) // 刚进副本区域
+			return true;
 
-	return false;
-	// 截取地图名称第一个字
-	m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_hWndGame, 1090, 5, 1255, 23, 0, true);
-	return m_pGame->m_pPrintScreen->CompareImage(CIN_InFB, nullptr, 1) > 0;
+		return false;
+	}
+	else {
+		char text[128] = { 0 };
+		::GetWindowTextA(account->Wnd.Map, text, sizeof(text));
+		return strstr(text, "阿拉玛的哭泣") != nullptr;
+	}
 }
 
 // 执行副本流程
@@ -689,24 +796,44 @@ void GameProc::ExecInFB()
 
 #if 0
 	//m_pGame->m_pMove->Run(MyRand(903, 913), MyRand(1058, 1065), m_pAccount);
-	m_pGame->m_pMagic->UseMagic("诸神裁决", 890, 1093, 10000);
+	//m_pGame->m_pMagic->UseMagic("诸神裁决", 890, 1093, 10000);
+	//m_pGame->m_pMove->RunEnd(836, 520, m_pAccount, 20 * 1000);
+	mouse_event(MOUSEEVENTF_MOVE, -10, 0, 0, 0);
 	while (1) Sleep(680);
 #endif
 
 	wchar_t log[128];
 
 	DbgPrint("执行副本流程\n");
-	LOG2(L"执行副本流程", "green b");
+	LOG2(L"执行副本流程:初始化数据.", "green b");
 
 	// 保护当前进程
 	m_pGame->m_pDriver->SetProtectPid(GetCurrentProcessId());
 
 	InitData();
 	m_pGame->SetStatus(m_pGame->m_pBig, ACCSTA_ATFB, true); // 置状态在副本
-	m_pGame->m_pButton->HideActivity(m_pAccount->Wnd.Game); // 隐藏活动列表
+
+	::SetForegroundWindow(m_pAccount->Wnd.Game);
+	Sleep(100);
+	m_pGame->m_pButton->Click(m_pAccount->Wnd.Game, 720, 520);
+	m_pGame->m_pButton->ClickPic(m_pAccount->Wnd.Game, m_pAccount->Wnd.Pic, 720, 450);
+	Sleep(500);
+	// 1886,320 465,62
+	// 1420,260
+	if (m_pGame->m_pButton->HideActivity(m_pAccount->Wnd.Game)) // 隐藏活动列表
+		Sleep(500);
+
+#if 0
+	// 隐藏右侧任务提示
+	m_pGame->m_pButton->ClickPic(m_pAccount->Wnd.Game, m_pAccount->Wnd.Pic, MyRand(1420, 1425), MyRand(260, 262));
+	Sleep(500);
+#endif
+
+	// 宠物出征合体
+	m_pGame->m_pPet->PetOut(m_pGame->m_pGameConf->m_stPetOut.No, m_pGame->m_pGameConf->m_stPetOut.Length);
+	m_pGame->m_pPet->PetFuck(-1);
 
 	char* step_file = m_pGameStep->SelectRandStep();
-
 	wchar_t file[128];
 	wsprintfW(file, L"文件:%hs", step_file);
 	m_pGame->UpdateText("step_file", file);
@@ -741,11 +868,12 @@ void GameProc::ExecInFB()
 	}
 
 	//while (true) Sleep(168);
-	m_pGameStep->ResetStep(41, 0x01);
+	LOG2(L"执行副本流程:开始.", "green b");
+	m_pGameStep->ResetStep(m_pGameStep->m_iStepInitIndex, 0x01);
 	while (1 && ExecStep(m_pGameStep->m_Step, true)); // 大号刷副本
 	m_bLockGoFB = false;
 
-	while (true) Sleep(900);
+	//while (true) Sleep(900);
 
 	int end_time = time(nullptr);
 	int second = end_time - start_time;
@@ -756,120 +884,16 @@ void GameProc::ExecInFB()
 
 	m_pGameStep->ResetStep();
 	int game_flag = 0;
-	if (0 || m_nReOpenFB == 2) { // 重新开启副本
-		m_pGame->UpdateReOpenFBCount(++m_nReOpenFBCount);
-		game_flag = 1; // 重新点击登录
-
-		m_pGame->m_pServer->SmallOutFB(m_pGame->m_pBig, nullptr, 0);
-
-		m_pGame->LogOut(m_pAccount);
-		Sleep(1000);
-		if (!1) {
-			DbgPrint("\n未等待到登录画面\n\n");
-			LOG2(L"\n未等待到登录画面", "red");
-			game_flag = 2; // 重开游戏
-		}
-	}
-	else {
-		if (!m_pAccount->LastX || !m_pAccount->LastY) {
-			game_flag = 1; // 重新点击登录
-			m_pGame->m_pServer->SmallOutFB(m_pGame->m_pBig, nullptr, 0);
-			if (!1) {
-				DbgPrint("\n未等待到登录画面\n\n");
-				LOG2(L"\n未等待到登录画面", "red");
-				game_flag = 2; // 重开游戏
-			}
-		}
-	}
 
 	if (game_flag == 0) { // 游戏正常运行
 		if (m_nReOpenFB == 0) {
 			m_pGame->UpdateFBCountText(++m_nPlayFBCount, true);
 		}
 		if (m_nReOpenFB == 1) { // 出去重新开始
-			OutFB(m_pAccount);
+			AllOutFB(true);
 		}
 	}
 	else { // 游戏已退出到登录界面
-		if (game_flag == 2) {
-			m_pGame->m_pEmulator->CloseGame(m_pAccount->Index);
-			Sleep(1000);
-			m_pGame->m_pEmulator->StartGame(m_pAccount->Index);
-			Sleep(1000);
-			DbgPrint("等待进入登录界面...\n");
-			LOG2(L"等待进入登录界面...", "c0");
-
-			int wait_second = 0, wait_second_allow = 180;
-			while (!1) {
-				m_pGame->m_pEmulator->List2();
-				wait_second += 3;
-				Sleep(3000);
-
-				if (wait_second >= wait_second_allow) { // 2分钟等不到, 可能已卡住重启模拟器
-					LOG2(L"关闭模拟器.", "red b");
-					m_pGame->m_pEmulator->Close(m_pAccount->Index); 
-					Sleep(5000);
-					LOG2(L"启动模拟器.", "green b");
-					m_pGame->m_pEmulator->Open(m_pAccount);
-					Sleep(5000);
-					m_pGame->m_pEmulator->List2();
-					m_pGame->m_pPrintScreen->InjectVBox(m_pGame->m_chPath, m_pAccount->Mnq->UiPid);
-					SwitchGameWnd(m_pAccount->Mnq->Wnd);
-					LOG2(L"等待进入登录界面...", "c0");
-
-					wait_second = 0;
-					wait_second_allow = 300;
-				}
-			}
-
-			m_pAccount->IsLogin = 1;
-			m_pAccount->Addr.MoveX = 0;
-			m_pAccount->IsGetAddr = 0;
-		}
-
-		Sleep(1000);
-		DbgPrint("点击进入游戏\n");
-		LOG2(L"点击进入游戏", "blue");
-		Click(600, 505, 700, 530);
-		Sleep(2000);
-		DbgPrint("点击弹框登录\n");
-		LOG2(L"点击弹框登录", "blue");
-		Click(526, 436, 760, 466);
-		Sleep(2000);
-		DbgPrint("点击登录\n");
-		LOG2(L"点击登录", "blue");
-		Click(575, 405);
-		DbgPrint("等待进入游戏...\n");
-		LOG2(L"等待进入游戏...", "c0");
-
-		int iii = 0, log_click_num = 0;
-		do {
-			Sleep(1000);
-			if (++iii == 3) {
-				LOG2(L"点击弹框登录", "blue_r b");
-				m_pGame->m_pGameProc->Click(526, 436, 760, 466);
-				Sleep(1000);
-				LOGVARP2(log, "red", L"点击登录(%d)", ++log_click_num);
-				Click(575, 405);
-				iii = 0;
-			}
-			if (game_flag == 2) {
-				m_pGame->m_pGameData->WatchGame();
-			}
-
-			m_pGame->m_pGameData->ReadCoor(&m_pAccount->LastX, &m_pAccount->LastY, m_pAccount);
-			Sleep(100);
-		} while (!m_pAccount->IsGetAddr || !m_pAccount->Addr.MoveX || m_pAccount->LastX == 0);
-
-		DbgPrint("等待进入游戏画面...\n");
-		LOG2(L"等待进入游戏画面...", "c0");
-		do {
-			Sleep(1000);
-		} while (!1);
-
-		Sleep(1000);
-		if (IsInFB())
-			OutFB(m_pAccount);
 	}
 		
 	m_pGame->UpdateFBTimeLongText(end_time - m_nStartFBTime + m_nFBTimeLong, end_time - m_nUpdateFBTimeLongTime); // 更新时间
@@ -904,7 +928,15 @@ void GameProc::ExecInFB()
 		Sleep(1000);
 	}
 
-	m_pGame->m_pServer->AskXLCount("重新开启副本");
+	Account* open = OpenFB();
+	if (open) {
+		ViteInFB(open);
+		AllInFB(open);
+	}
+	else {
+		LOG2(L"没有可以开启副本的帐号.", "red");
+	}
+	
 	//Wait((wait_s - (time(nullptr) - out_time)) * 1000);
 }
 
@@ -917,7 +949,7 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 		return false;
 	}
 
-	printf("CMD:%s\n", m_pStep->Cmd);
+	//printf("CMD:%s\n", m_pStep->Cmd);
 	//while (true) Sleep(168);
 
 	if (m_pStep->OpCode == OP_MOVE) {
@@ -932,10 +964,15 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 		}
 	}
 
+	if (m_pStep->OpCode != OP_NPC && m_pStep->OpCode != OP_SELECT) {
+		m_pGame->m_pPet->Revive();
+	}
+
 	wchar_t log[128];
 	_step_* m_pTmpStep = m_pStep; // 临时的
 
 	int now_time = time(nullptr);
+	m_pStep->ExecTime = now_time;
 	if (isfb) {
 		m_pGame->UpdateFBTimeLongText(now_time - m_nStartFBTime + m_nFBTimeLong, now_time - m_nUpdateFBTimeLongTime); // 更新时间
 		m_nUpdateFBTimeLongTime = now_time;
@@ -958,6 +995,9 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 		ChNCk();
 	}
 
+	CloseTipBox();
+	CloseVite();
+
 	bool bk = false;
 	char msg[128];
 	switch (m_pStep->OpCode)
@@ -965,7 +1005,7 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 	case OP_MOVE:
 	case OP_MOVEPICKUP:
 		DbgPrint("流程->移动:%d.%d至%d.%d\n", m_pStep->X, m_pStep->Y, m_pStep->X2, m_pStep->Y2);
-		LOGVARP2(log, "c0 b", L"流程->移动:%d.%d至%d.%d", m_pStep->X, m_pStep->Y, m_pStep->X2, m_pStep->Y2);
+		LOGVARP2(log, "c0 b", L"流程->移动:%d.%d至%d.%d 误差:%d", m_pStep->X, m_pStep->Y, m_pStep->X2, m_pStep->Y2, m_pStep->OpCount);
 		if (m_pStep->OpCode == OP_MOVEPICKUP) {
 			m_pGame->m_pItem->GetQuickYaoOrBaoNum(m_nYaoBao, m_nYao);
 			if (m_nYaoBao >= 6) {
@@ -976,8 +1016,23 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 		}
 
 		if (m_pStep->X2 && m_pStep->Y2) {
-			m_pStep->Extra[0] = MyRand(m_pStep->X, m_pStep->X2, m_nFBTimeLongOne);
-			m_pStep->Extra[1] = MyRand(m_pStep->Y, m_pStep->Y2, m_nFBTimeLongOne);
+			DWORD pos_x, pos_y;
+			m_pGame->m_pGameData->ReadCoor(&pos_x, &pos_y, m_pAccount); // 读取当前坐标
+			DWORD min_x = min(m_pStep->X, m_pStep->X2);
+			DWORD max_x = max(m_pStep->X, m_pStep->X2);
+			DWORD min_y = min(m_pStep->Y, m_pStep->Y2);
+			DWORD max_y = max(m_pStep->Y, m_pStep->Y2);
+
+			bool x_in_pos = pos_x >= min_x && pos_x <= max_x; // 位置x在指定范围内
+			bool y_in_pos = pos_y >= min_y && pos_y <= max_y; // 位置y在指定范围内
+			if (x_in_pos && y_in_pos) {
+				LOG2(L"已在此位置, 不需移动了.", "c0");
+				bk = true;
+				break;
+			}
+
+			m_pStep->Extra[0] = x_in_pos ? pos_x : MyRand(m_pStep->X, m_pStep->X2, m_nFBTimeLongOne);
+			m_pStep->Extra[1] = y_in_pos ? pos_y : MyRand(m_pStep->Y, m_pStep->Y2, m_nFBTimeLongOne);
 
 			DbgPrint("实际移动位置:%d,%d\n", m_pStep->Extra[0], m_pStep->Extra[1]);
 			LOGVARP2(log, "c0", L"实际移动位置:%d,%d", m_pStep->Extra[0], m_pStep->Extra[1]);
@@ -991,6 +1046,8 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 	case OP_MOVEFAR:
 		DbgPrint("流程->传送:%d.%d\n", m_pStep->X, m_pStep->Y);
 		LOGVARP2(log, "c0 b", L"流程->传送:%d.%d", m_pStep->X, m_pStep->Y);
+		m_pStep->Extra[0] = m_pStep->X;
+		m_pStep->Extra[1] = m_pStep->Y;
 		Move();
 		break;
 	case OP_MOVERAND:
@@ -1011,6 +1068,26 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 			LOG2(L"随机移动跳过\n", "c0 b");
 			bk = true;
 		}
+		break;
+	case OP_MOVEONE:
+		LOGVARP2(log, "c0 b", L"流程->移动:%d.%d至%d.%d", m_pStep->X, m_pStep->Y, m_pStep->X2, m_pStep->Y2);
+		if (m_pStep->X2 && m_pStep->Y2) {
+			m_pStep->Extra[0] = MyRand(m_pStep->X, m_pStep->X2, m_nFBTimeLongOne);
+			m_pStep->Extra[1] = MyRand(m_pStep->Y, m_pStep->Y2, m_nFBTimeLongOne);
+
+			DbgPrint("实际移动位置:%d,%d\n", m_pStep->Extra[0], m_pStep->Extra[1]);
+			LOGVARP2(log, "c0", L"实际移动位置:%d,%d", m_pStep->Extra[0], m_pStep->Extra[1]);
+		}
+		else {
+			m_pStep->Extra[0] = m_pStep->X;
+			m_pStep->Extra[1] = m_pStep->Y;
+		}
+		MoveOne();
+		break;
+	case OP_MOVECLICK:
+		DbgPrint("流程->移动:%d.%d 点击:%d.%d\n", m_pStep->X, m_pStep->Y, m_pStep->Clx, m_pStep->Cly);
+		LOGVARP2(log, "c0 b", L"流程->移动:%d.%d 点击:%d.%d", m_pStep->X, m_pStep->Y, m_pStep->Clx, m_pStep->Cly);
+		MoveClick();
 		break;
 	case OP_MOVENPC:
 		if (m_pStep->p_npc) {
@@ -1040,8 +1117,8 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 		Select();
 		break;
 	case OP_MAGIC:
-		DbgPrint("流程->技能.%s 使用次数:%d\n", m_pStep->Magic, m_pStep->OpCount);
-		LOGVARP2(log, "c0 b", L"流程->技能.%hs 使用次数:%d", m_pStep->Magic, m_pStep->OpCount);
+		DbgPrint("流程->技能.%s(%d,%d) 使用次数:%d\n", m_pStep->Magic, m_pStep->X, m_pStep->Y, m_pStep->OpCount);
+		LOGVARP2(log, "c0 b", L"流程->技能.%hs(%d,%d) 使用次数:%d", m_pStep->Magic, m_pStep->X, m_pStep->Y, m_pStep->OpCount);
 		Magic();
 		break;
 	case OP_MAGIC_PET:
@@ -1063,11 +1140,18 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 		//Clear();
 		break;
 	case OP_KAIRUI:
-		DbgPrint("流程->凯瑞 移动:(%d,%d) 截屏:(%d,%d)-(%d,%d)\n", m_pStep->X, m_pStep->Y, 
-			m_pStep->Extra[0], m_pStep->Extra[1], m_pStep->Extra[2], m_pStep->Extra[3]);
-		LOGVARP2(log, "c0 b", L"流程->凯瑞 移动:(%d,%d) 截屏:(%d,%d)-(%d,%d)", m_pStep->X, m_pStep->Y,
-			m_pStep->Extra[0], m_pStep->Extra[1], m_pStep->Extra[2], m_pStep->Extra[3]);
-		KaiRui();
+		DbgPrint("流程->凯瑞 移动:(%d,%d) 技能:(%d,%d)\n", m_pStep->X, m_pStep->Y, m_pStep->X2, m_pStep->Y2);
+		LOGVARP2(log, "c0 b", L"流程->凯瑞 移动:(%d,%d) 技能:(%d,%d)", m_pStep->X, m_pStep->Y, m_pStep->X2, m_pStep->Y2);
+
+		if (!m_bClearKaiRui) { // 还没有干掉它
+			m_pStep->Extra[0] = m_pStep->X;
+			m_pStep->Extra[1] = m_pStep->Y;
+			Move();
+		}
+		else {
+			LOG2(L"凯瑞已被干掉, 跳过.", "green");
+			bk = true;
+		}
 		break;
 	case OP_PICKUP:
 		DbgPrint("流程->捡拾物品:%s, 截屏:(%d,%d)-(%d,%d)\n", m_pStep->Name, m_pStep->X, m_pStep->Y, m_pStep->X2, m_pStep->Y2);
@@ -1161,6 +1245,9 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 
 	SMSG_D("流程->执行完成");
 	if (bk) {
+		if (!m_bIsRecordStep)
+			LOG2(L"流程->已完成此步骤\n", "c0 b");
+
 		return m_pGameStep->CompleteExec(link) != nullptr;
 	}
 	if (m_bIsResetRecordStep) {
@@ -1178,21 +1265,37 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 	m_nYaoBao = 0;
 	m_nYao = 0;
 
+	
 	bool no_mov_screen = false; // 卡住是否已截图了
-	int mov_i = 0;
-	int drop_i = 0;
-	int move_far_i = 0;
+	int  try_count = 0;         // 解决卡住情况次数
+	int  use_second = 0;        // 单步用时秒
+	int  pause_second = 0;      // 暂停用时秒
+	int  pause_time = 0;        // 暂停初次时间
+	int  mov_i = 0;
+	int  drop_i = 0;
+	int  move_far_i = 0;
 	do {
 		while (m_bNoVerify); // 没有通过验证
 
-		do {
+		while (true) {
 			if (m_bStop || m_bReStart)
 				return false;
-			if (m_bPause)
-				Sleep(500);
-		} while (m_bPause);
 
-		if (isfb && m_pGame->m_Setting.FBTimeOutErvry > 0) { // 副本最大允许时间
+			if (m_bPause) {
+				if (pause_time == 0) {
+					pause_time = time(nullptr);
+				}
+				Sleep(500);
+			}
+			else {
+				if (pause_time > 0) {
+					pause_second = time(nullptr) - pause_time;
+				}
+				break;
+			}
+		}
+
+		if (0 && isfb && m_pGame->m_Setting.FBTimeOutErvry > 0) { // 副本最大允许时间
 			int use_second = time(nullptr) - m_nStartFBTime;
 			if (use_second >= m_pGame->m_Setting.FBTimeOutErvry) {
 				DbgPrint("\n副本时间达到%d秒, 超过%d秒, 重开副本\n\n", use_second, m_pGame->m_Setting.FBTimeOutErvry);
@@ -1205,22 +1308,33 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 		Sleep(10);
 
 		bool use_yao_bao = false;
-		if (m_pStep->OpCode == OP_MOVE || m_pStep->OpCode == OP_MOVERAND || m_pStep->OpCode == OP_MOVENPC) {
+		if (m_pStep->OpCode == OP_MOVE || m_pStep->OpCode == OP_MOVERAND || m_pStep->OpCode == OP_MOVENPC
+			|| m_pStep->OpCode == OP_MOVEFAR || m_pStep->OpCode == OP_KAIRUI) {
 			mov_i++;
-			if ((mov_i % 30) == 0) {
+			if (m_pStep->OpCount <= 0 && (mov_i % 10) == 0) {
 				Move(true);
 			}
 
-			if (mov_i == 50 && mov_i <= 60) {
+			if (m_bIsFirstMove && mov_i == 50) {
+				// 隐藏右侧任务提示
+				m_pGame->m_pButton->ClickPic(m_pAccount->Wnd.Game, m_pAccount->Wnd.Pic, MyRand(1423, 1425), MyRand(260, 262), 150);
+				Sleep(500);
+
+				// 宠物出征合体
+				m_pGame->m_pPet->PetOut(m_pGame->m_pGameConf->m_stPetOut.No, m_pGame->m_pGameConf->m_stPetOut.Length);
+				m_pGame->m_pPet->PetFuck(-1);
+			}
+
+			if (mov_i == 80 && mov_i <= 100) {
 				CloseTipBox(); // 关闭弹出框
 			}
-			if (mov_i > 0 && (mov_i % 45) == 0) {
+			if (mov_i > 0 && (mov_i % 40) == 0) {
 				m_pGame->m_pItem->GetQuickYaoOrBaoNum(m_nYaoBao, m_nYao);
 			}
-			if (mov_i > 50 && (mov_i % 45) == 0) {
+			if (mov_i > 60 && (mov_i % 40) == 0) {
 				// 边走路边用药
 				if (m_nYaoBao > m_nLiveYaoBao) { // 药包大于6
-					if (m_nYao < 2) { // 药小于2
+					if (m_nYao <= 3) { // 药小于2
 						m_pGame->m_pItem->UseYaoBao(); // 用药包
 						m_nYaoBao--;
 						m_nYao += 6;
@@ -1251,6 +1365,10 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 		if (m_pStep->OpCode != OP_DROPITEM) {
 			SMSG_D("判断加血");
 			int life_flag = IsNeedAddLife(12600);
+			if (!m_bReborn && life_flag == -1) { // 第三关只需要加血
+				life_flag = 1;
+			}
+
 			if (life_flag == 1) { // 需要加血
 				SMSG_D("加血");
 				m_pGame->m_pItem->UseYao();
@@ -1299,76 +1417,6 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 			while (true);
 		}
 
-		if (m_nReMoveCount > 0 && (m_nReMoveCount % 5) == 0) {
-			if (m_pGame->m_pItem->BagIsOpen()) {
-				m_pGame->m_pItem->CloseBag();
-				Sleep(500);
-			}
-		}
-
-		if (m_nReMoveCount > 5) {
-			Sleep(100);
-			if  (m_nReMoveCount > 8 && (m_stLast.OpCode == OP_NPC || m_stLast.OpCode == OP_SELECT)) {
-				if (m_pGame->m_pTalk->TalkBtnIsOpen()) {
-					NPCLast(1);
-					m_pGame->m_pTalk->WaitTalkOpen(0x00);
-					Sleep(1000);
-					m_pGame->m_pTalk->Select(0x00);
-					Sleep(500);
-				}
-			}
-		}
-
-		if (m_nReMoveCount != m_nReMoveCountLast && m_nReMoveCount >= 15 && m_nReMoveCount < 18) {
-			m_pGame->m_pMagic->UseMagic("诸神裁决");
-		}
-
-		if (m_nReMoveCount != m_nReMoveCountLast && m_nReMoveCount > 19) {
-			DbgPrint("--------可能已卡住--------\n");
-			LOG2(L"--------可能已卡住--------", "red");
-			if (!no_mov_screen) {
-				Sleep(800);
-				m_pGame->SaveScreen("卡住");
-				no_mov_screen = true;
-			}
-
-			if (m_pGame->m_Setting.FBTimeOut > 0) {
-				int use_second = time(nullptr) - m_nStartFBTime;
-				if (use_second >= m_pGame->m_Setting.FBTimeOut) {
-					DbgPrint("\n副本时间达到%d秒, 超过%d秒, 重开副本\n\n", use_second, m_pGame->m_Setting.FBTimeOut);
-					LOGVARP2(log, "red b", L"\n副本时间达到%d秒, 超过%d秒, 重开副本\n", use_second, m_pGame->m_Setting.FBTimeOut);
-					m_nReOpenFB = 2;
-					return false;
-				}
-			}
-
-			if (m_nReMoveCount < 19 && (m_stLast.OpCode == OP_NPC || m_stLast.OpCode == OP_SELECT)) {
-				DbgPrint("--------尝试再次对话NPC--------\n");
-				LOG2(L"--------尝试再次对话NPC--------", "blue");
-				Sleep(800);
-				NPCLast(1);
-				m_pGame->m_pTalk->WaitTalkOpen(0x00);
-				Sleep(1000);
-				m_pGame->m_pTalk->Select(0x00);
-				Sleep(500);
-				DbgPrint("--------尝试对话NPC完成，需要移动到:(%d,%d)-------\n", m_pStep->X, m_pStep->Y);
-				LOGVARP2(log, "blue", L"--------尝试对话NPC完成，需要移动到:(%d,%d)-------", m_pStep->X, m_pStep->Y);
-				m_nReMoveCount++;
-			}
-			DbgPrint("--------%d次后重置到记录步骤--------\n", 19 - m_nReMoveCount);
-			LOGVARP2(log, "red", L"--------%d次后重置到记录步骤--------", 19 - m_nReMoveCount);
-			if (m_nReMoveCount >= 23 && m_pStepRecord) {
-				DbgPrint("--------重置到已记录步骤------\n");
-				LOG2(L"\n--------重置到已记录步骤--------\n", "blue_r b");
-				m_pGameStep->ResetStep(m_pStepRecord->Index, 0x01);
-				m_nReMoveCount = 0;
-				m_nReMoveCountLast = 0;
-				return true;
-			}
-
-			m_nReMoveCountLast = m_nReMoveCount;
-		}
-
 		if (complete) { // 已完成此步骤
 			DbgPrint("流程->已完成此步骤\n\n");
 			LOG2(L"流程->已完成此步骤\n", "c0 b");
@@ -1393,6 +1441,58 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 			}
 			return next != nullptr;
 		}
+		else {
+			use_second = time(nullptr) - m_pStep->ExecTime - pause_second; // 单次执行步骤用时, 减去暂停用时
+			if (use_second >= 60) {
+				DbgPrint("--------可能已卡住, 单步达到60秒.--------\n");
+				LOG2(L"--------可能已卡住, 单步达到60秒.--------", "red");
+				if (!no_mov_screen) {
+					Sleep(800);
+					m_pGame->SaveScreen("卡住");
+					no_mov_screen = true;
+				}
+
+				if (0 && m_pGame->m_Setting.FBTimeOut > 0) {
+					int use_second = time(nullptr) - m_nStartFBTime;
+					if (use_second >= m_pGame->m_Setting.FBTimeOut) {
+						DbgPrint("\n副本时间达到%d秒, 超过%d秒, 重开副本\n\n", use_second, m_pGame->m_Setting.FBTimeOut);
+						LOGVARP2(log, "red b", L"\n副本时间达到%d秒, 超过%d秒, 重开副本\n", use_second, m_pGame->m_Setting.FBTimeOut);
+						m_nReOpenFB = 2;
+						return false;
+					}
+				}
+
+				if (try_count++ < 2) {
+					DbgPrint("--------尝试再次对话NPC--------\n");
+					LOG2(L"--------尝试再次对话NPC--------", "blue");
+					Sleep(800);
+					NPCLast(1);
+					m_pGame->m_pTalk->WaitTalkOpen(m_pAccount->Wnd.Game);
+					Sleep(1000);
+					m_pGame->m_pTalk->Select(m_chLastSelectName, m_pAccount->Wnd.Game);
+					Sleep(500);
+					DbgPrint("--------尝试对话NPC完成，需要移动到:(%d,%d)-------\n", m_pStep->X, m_pStep->Y);
+					LOGVARP2(log, "blue", L"--------尝试对话NPC完成，需要移动到:(%d,%d)-------", m_pStep->X, m_pStep->Y);
+					m_nReMoveCount++;
+				}
+				else {
+					if (use_second > 90) {
+						DbgPrint("--------重置到已记录步骤------\n");
+						LOG2(L"\n--------重置到已记录步骤--------\n", "blue_r b");
+						m_pGameStep->ResetStep(m_pStepRecord->Index, 0x01);
+						m_nReMoveCount = 0;
+						m_nReMoveCountLast = 0;
+						return true;
+					}
+					else {
+						DbgPrint("--------%d秒后重置到记录步骤--------\n", 90 - use_second);
+						LOGVARP2(log, "red", L"--------%d秒后重置到记录步骤--------", 80 - use_second);
+					}
+				}
+
+				m_nReMoveCountLast = m_nReMoveCount;
+			}
+		}
 	} while (true);
 
 	return false;
@@ -1401,12 +1501,14 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 // 步骤是否已执行完毕
 bool GameProc::StepIsComplete()
 {
+	int move_flag = 0;
 	bool result = false;
 	switch (m_pStep->OpCode)
 	{
 	case OP_MOVE:
 	case OP_MOVERAND:
 	case OP_MOVENPC:
+	case OP_KAIRUI:
 		if (m_pGame->m_pMove->IsMoveEnd(m_pAccount)) { // 已到指定位置
 			m_pStepLastMove = m_pStep;
 			m_stLast.MvX = m_pStep->Extra[0];
@@ -1420,16 +1522,74 @@ bool GameProc::StepIsComplete()
 				m_pGame->m_pItem->SwitchMagicQuickBar();
 				m_bIsFirstMove = false;
 			}
-			//while (true) Sleep(900);
+			if (m_pStep->OpCode == OP_KAIRUI) {
+				KaiRui(); // 搞凯瑞
+			}
 			goto end;
 		}
-		SMSG_D("判断是否移动到终点->完成", true);
-		if (!m_pGame->m_pMove->IsMove(m_pAccount)) {   // 已经停止移动
-			Move(false);
+
+		move_flag = m_pGame->m_pMove->IsMove(m_pAccount);
+		if (move_flag == 0) {   // 未移动
+			DbgPrint("没有移动了(%d).\n", m_nReMoveCount);
+			CloseTipBox();
+			CloseVite();
+			if (m_pStep->OpCode == OP_MOVENPC) { // 点到了NPC
+				if (0 && m_pGame->m_pTalk->NPCTalkStatus(m_pAccount->Wnd.Game)) {
+					result = true;
+					goto end;
+				}
+			}
+			else {
+				Move(false);
+			}
+			
 			m_nReMoveCountLast = m_nReMoveCount;
 			m_nReMoveCount++;
 		}
-		SMSG_D("判断是否移动->完成", true);
+		if (move_flag == 1) { // 移动中
+			int tmp = m_nReMoveCount;
+			m_nReMoveCountLast = m_nReMoveCount;
+			if (m_nReMoveCount > 0)
+				m_nReMoveCount--;
+
+			DbgPrint("移动(%d)<<(%d).\n", m_nReMoveCount, tmp);
+		}
+		break;
+	case OP_MOVEONE:
+		MoveOne();
+		break;
+	case OP_MOVECLICK:
+		DWORD pos_x, pos_y;
+		m_pGame->m_pGameData->ReadCoor(&pos_x, &pos_y, m_pAccount); // 读取当前坐标
+		if (!m_pStep->X2 || !m_pStep->Y2) {
+			if (m_pStep->X == pos_x && m_pStep->Y == pos_y)
+				result = true;
+		}
+		else {
+			DWORD min_x = min(m_pStep->X, m_pStep->X2);
+			DWORD max_x = max(m_pStep->X, m_pStep->X2);
+			DWORD min_y = min(m_pStep->Y, m_pStep->Y2);
+			DWORD max_y = max(m_pStep->Y, m_pStep->Y2);
+
+			if ((pos_x >= min_x && pos_x <= max_x) && (pos_y >= min_y && pos_y <= max_y)) {
+				LOGVARN2(64, "c0", L"(%d>=%d&&%d<=%d) && (%d>=%d&&%d<=%d)", 
+					pos_x, min_x, pos_x, max_x, pos_y, min_y, pos_y, max_y);
+				result = true;
+			}	
+		}
+
+		if (result) {
+			LOGVARN2(64, "c0", L"当前坐标:%d,%d", pos_x, pos_y);
+			if (m_pStep->Extra[0] == 0x01) {
+				m_pGame->m_pButton->Click(m_pAccount->Wnd.Pic, SCREEN_X/2, SCREEN_Y/2);
+			}
+			goto end;
+		}
+		else {
+			if (m_pStep->Extra[0] & 0x01) {
+				MoveClick(true);
+			}
+		}
 		break;
 	case OP_MOVEFAR:
 		if (m_pGame->m_pGameData->IsNotInArea(m_pStep->X, m_pStep->Y, 50, m_pAccount)) { // 已不在此区域
@@ -1439,12 +1599,12 @@ bool GameProc::StepIsComplete()
 			goto end;
 		}
 		if (m_pGame->m_pMove->IsMoveEnd(m_pAccount)) { // 已到指定位置
-			m_pGame->m_pMove->Run(m_pStep->X - 5, m_pStep->Y, m_pAccount);
+			Move(false);
 			m_nReMoveCount = 0;
 			m_nReMoveCountLast = 0;
 		}
 		if (!m_pGame->m_pMove->IsMove(m_pAccount)) {   // 已经停止移动
-			m_pGame->m_pMove->Run(m_pStep->X, m_pStep->Y, m_pAccount);
+			Move(false);
 			m_nReMoveCountLast = m_nReMoveCount;
 			m_nReMoveCount++;
 		}
@@ -1460,7 +1620,32 @@ end:
 // 移动
 void GameProc::Move(bool check_time)
 {
+	m_pAccount->MvFlag = m_pStep->OpCount;
 	m_pGame->m_pMove->Run(m_pStep->Extra[0], m_pStep->Extra[1], m_pAccount, check_time);
+}
+
+// 移动
+void GameProc::MoveOne()
+{
+	m_pAccount->MvFlag = m_pStep->OpCount;
+	int x, y;
+	m_pGame->m_pMove->MakeClickCoor(x, y, m_pStep->Extra[0], m_pStep->Extra[1], m_pGame->m_pGameProc->m_pAccount);
+	m_pGame->m_pMove->RunClick(m_pStep->Extra[0], m_pStep->Extra[1], x, y, m_pAccount, false);
+}
+
+// 移点
+void GameProc::MoveClick(bool check_time)
+{
+	m_pAccount->MvFlag = m_pStep->OpCount;
+
+	DWORD click_x = m_pStep->Clx, click_y = m_pStep->Cly;
+	if (m_pStep->Clx2)
+		click_x = MyRand(m_pStep->Clx, m_pStep->Clx2);
+	if (m_pStep->Cly2)
+		click_y = MyRand(m_pStep->Cly, m_pStep->Cly2);
+
+	m_pGame->m_pMove->RunClick(m_pStep->X, m_pStep->Y, click_x, click_y, m_pAccount, check_time);
+	//while (true) Sleep(168);
 }
 
 // 移至NPC
@@ -1512,6 +1697,9 @@ int GameProc::GetMoveNPCPos(_npc_coor_* p_npc, DWORD & x, DWORD & y)
 void GameProc::NPC()
 {
 	//SetGameCursorPos(325, 62);
+	CloseTipBox();
+
+	m_pGame->m_pButton->Key('C');
 
 	bool kill_boss = false;
 	if (strcmp("嗜血骑士", m_pStep->NPCName) == 0) {
@@ -1531,28 +1719,28 @@ void GameProc::NPC()
 		kill_boss = true;
 		m_nBossNum = 3;
 		m_nLiveYaoBao = 5;
-		m_nLiveYao = 1;
+		m_nLiveYao = 3;
 		m_bPlayFB = false;
 	}
 	else if (strcmp("阿拉玛的怨念", m_pStep->NPCName) == 0) {
 		kill_boss = true;
 		m_nBossNum = 4;
 		m_nLiveYaoBao = 6;
-		m_nLiveYao = 2;
+		m_nLiveYao = 3;
 		m_bPlayFB = false;
 	}
 	if (strcmp("传送门", m_pStep->NPCName) == 0) {
-		MouseWheel(-240);
+		//MouseWheel(360);
 	}
 
 	if (kill_boss) { // 使用攻击符
-		//m_pGame->m_pMagic->UseGongJiFu();
-		//Sleep(500);
+		m_pGame->m_pMagic->UseGongJiFu();
+		Sleep(260);
 	}
 
-	if (m_pStepLastMove && m_pStepLastMove->OpCode == OP_MOVENPC && m_pStepLastMove->p_npc) { // 移至NPC步骤
+	if (1 || (m_pStepLastMove && m_pStepLastMove->OpCode == OP_MOVENPC && m_pStepLastMove->p_npc)) { // 移至NPC步骤
 		DWORD click_x = 0, click_y = 0;
-		CheckInNPCPos(m_pStepLastMove->p_npc, click_x, click_y);
+		CheckInNPCPos(m_pStep->p_npc, click_x, click_y);
 		NPC(m_pStep->NPCName, click_x, click_y, 0, 0);
 		m_stLast.ClickX = click_x;
 		m_stLast.ClickY = click_y;
@@ -1580,23 +1768,29 @@ void GameProc::NPC(const char* name, int x, int y, int x2, int y2)
 	if (y2)
 		y = MyRand(y, y2);
 
+	int i = 0;
+_click:
+
 	m_pGame->m_pButton->ClickPic(m_pAccount->Wnd.Game, m_pAccount->Wnd.Pic, x, y);
 	DbgPrint("点击NPC:%d,%d\n", x, y);
 	LOGVARN2(32, "c0", L"点击:%d,%d", x, y);
 	
-	int i = 0;
+	m_bReborn = true;
 	if (strstr(name, "封印机关")) { // 检查机关点完了否
-		if (++i == 3)
+		m_bReborn = false;
+		if (++i == 5)
 			return;
 
 		for (int ms = 0; ms < 800; ms += 100) {
-			if (1) // m_pGame->m_pTalk->SureBtnIsOpen()
+			if (CloseTipBox())
 				return;
 			Sleep(100);
 		}
 
-		LOGVARN2(32, "red b", L"封印机关未解开, 再次点击解开");
-		//goto _click;
+		LOGVARN2(32, "red b", L"封印机关未解开, 需要再次解开(%d).", i);
+		if (CheckInNPCPos(m_pStep->p_npc, (DWORD&)x, (DWORD&)y, true) == -1)
+			Wait(1 * 1000);
+		goto _click;
 	}
 }
 
@@ -1607,11 +1801,9 @@ bool GameProc::NPCLast(bool check_pos, DWORD mov_sleep_ms)
 	bool is_move = false;
 	if (check_pos) {
 		bool need_move = true;
-		if (m_pStep->OpCount == 1) {
-			need_move = !m_pGame->m_pTalk->TalkBtnIsOpen();
-		}
 		if (need_move) {
 			if (m_pStepLastMove && m_pStepLastMove->OpCode == OP_MOVENPC && m_pStepLastMove->p_npc) { // 移至NPC步骤
+				LOG2(L"need_move.", "c6");
 				DWORD click_x = 0, click_y = 0;
 				int result = CheckInNPCPos(m_pStepLastMove->p_npc, click_x, click_y);
 				if (result) {
@@ -1629,15 +1821,24 @@ bool GameProc::NPCLast(bool check_pos, DWORD mov_sleep_ms)
 				while (m_bPause) Sleep(500);
 
 				DbgPrint("重新移动到:(%d,%d) 现在位置:(%d,%d)\n", m_stLast.MvX, m_stLast.MvY, pos_x, pos_y);
-				LOGVARP2(log, "blue", L"重新移动到:(%d,%d) 现在位置:(%d,%d)", m_stLast.MvX, m_stLast.MvY, pos_x, pos_y);
+				LOGVARP2(log, "blue", L"重新移动到[A]:(%d,%d) 现在位置:(%d,%d)", m_stLast.MvX, m_stLast.MvY, pos_x, pos_y);
+				if (!m_pStepLastMove) {
+					LOG2(L"!m_pStepLastMove", "red b");
+				}
+				if (m_pStepLastMove->OpCode != OP_MOVENPC) {
+					LOGVARP2(log, "red b", L"m_pStepLastMove->OpCode=%d", m_pStepLastMove->OpCode);
+				}
+				if (!m_pStepLastMove->p_npc) {
+					LOG2(L"!m_pStepLastMove->p_npc", "red b");
+				}
 				
 				if (mov_sleep_ms) {
 					Sleep(mov_sleep_ms);
 				}
 
 				DWORD time_out = strcmp("传送门", m_stLast.NPCName) == 0 ? (6*1000) : (15*1000);
-				//if (!m_pGame->m_pMove->RunEnd(m_stLast.MvX, m_stLast.MvY, m_pAccount, false, time_out))
-				//	return false;
+				if (!m_pGame->m_pMove->RunEnd(m_stLast.MvX, m_stLast.MvY, m_pAccount, time_out))
+					return false;
 
 				Wait(1 * 1000);
 				is_move = true;
@@ -1647,9 +1848,14 @@ bool GameProc::NPCLast(bool check_pos, DWORD mov_sleep_ms)
 	}
 
 	if (m_stLast.NPCOpCode == OP_NPC) {
+		DWORD click_x = m_stLast.ClickX, click_y = m_stLast.ClickY;
+		if (m_pStepLastMove && m_pStepLastMove->OpCode == OP_MOVENPC && m_pStepLastMove->p_npc) {
+			CheckInNPCPos(m_pStepLastMove->p_npc, click_x, click_y);
+		}
+
 		DbgPrint("再次点击对话打开NPC(%s)\n", m_stLast.NPCName);
 		LOGVARP2(log, "blue", L"再次点击对话打开NPC(%hs)", m_stLast.NPCName);
-		NPC(m_stLast.NPCName, m_stLast.ClickX, m_stLast.ClickY, m_stLast.ClickX2, m_stLast.ClickY2);
+		NPC(m_stLast.NPCName, click_x, click_y);
 	}
 	else if (m_stLast.NPCOpCode == OP_CLICK) {
 		if (0 && m_stLast.ClickX2 && m_stLast.ClickY2) {
@@ -1670,13 +1876,17 @@ bool GameProc::NPCLast(bool check_pos, DWORD mov_sleep_ms)
 // 检查是否在可点击NPC范围内 is_move=是否移动到范围
 int GameProc::CheckInNPCPos(_npc_coor_* p_npc, DWORD& click_x, DWORD& click_y, bool is_move)
 {
-	if (!p_npc)
+	if (!p_npc) {
+		LOG2(L"!p_npc", "red");
 		return 0;
+	}
 
 	DWORD pos_x, pos_y;
-	if (!m_pGame->m_pGameData->ReadCoor(&pos_x, &pos_y, m_pAccount))
+	if (!m_pGame->m_pGameData->ReadCoor(&pos_x, &pos_y, m_pAccount)) {
+		LOG2(L"!CheckInNPCPos->ReadCoor", "red");
 		return 0;
-
+	}
+		
 	_npc_coor_* p = p_npc;
 	int i = 0;
 	// 循环判断是否在位置范围内
@@ -1702,7 +1912,7 @@ int GameProc::CheckInNPCPos(_npc_coor_* p_npc, DWORD& click_x, DWORD& click_y, b
 			else {
 				GetNPCClickPos(p, pos_x, pos_y, click_x, click_y);
 			}
-#if 0
+#if 1
 			LOGVARN2(64, "green", L"已在目的地(%d,%d) (%d,%d)-(%d,%d)", pos_x, pos_y,
 				p->Point[i].MvX, p->Point[i].MvY, p->Point[i].MvX2, p->Point[i].MvY2);
 #endif
@@ -1716,10 +1926,13 @@ int GameProc::CheckInNPCPos(_npc_coor_* p_npc, DWORD& click_x, DWORD& click_y, b
 
 	DWORD mv_x, mv_y;
 	i = GetMoveNPCPos(p_npc, mv_x, mv_y);
-	LOGVARN2(64, "blue_r", L"重新移动到:(%d,%d) 现在位置:(%d,%d)", mv_x, mv_y, pos_x, pos_y);
+	LOGVARN2(64, "blue_r", L"重新移动到[B]:(%d,%d) 现在位置:(%d,%d)", mv_x, mv_y, pos_x, pos_y);
 
 	DWORD time_out = strcmp("传送门", m_stLast.NPCName) == 0 ? (6 * 1000) : (15*1000);
-	//m_pGame->m_pMove->RunEnd(mv_x, mv_y, m_pAccount, false, time_out);
+	if (m_pGame->m_pMove->RunEnd(mv_x, mv_y, m_pAccount, time_out) == 0) {
+		CloseTipBox();
+	}
+
 	if (p->Point[i].ClkX && p->Point[i].ClkY) {
 		click_x = p->Point[i].ClkX2 ? MyRand(p->Point[i].ClkX, p->Point[i].ClkX2) : p->Point[i].ClkX;
 		click_y = p->Point[i].ClkY2 ? MyRand(p->Point[i].ClkY, p->Point[i].ClkY2) : p->Point[i].ClkY;
@@ -1731,7 +1944,7 @@ int GameProc::CheckInNPCPos(_npc_coor_* p_npc, DWORD& click_x, DWORD& click_y, b
 }
 
 // 获取点击NPC坐标
-bool GameProc::GetNPCClickPos(_npc_coor_ * p_npc, DWORD pos_x, DWORD pos_y, DWORD & click_x, DWORD & click_y)
+bool GameProc::GetNPCClickPos(_npc_coor_* p_npc, DWORD pos_x, DWORD pos_y, DWORD & click_x, DWORD & click_y)
 {
 	if (p_npc->Length == 0)
 		return false;
@@ -1764,8 +1977,8 @@ bool GameProc::GetNPCClickPos(_npc_coor_ * p_npc, DWORD pos_x, DWORD pos_y, DWOR
 		click_y = MyRand(clx_y, clx_y2, m_nFBTimeLongOne);
 
 #if 0
-		LOGVARN2(64, "c9", L"点击取值:%d,%d (%d,%d)-(%d,%d) 位置:%d,%d", 
-			click_x, click_y, clx_x, clx_y, clx_x2, clx_y2, pos_x, pos_y);
+		LOGVARN2(64, "c9", L"点击取值:%d,%d (%d,%d)-(%d,%d) 位置:%d,%d %d,%d", 
+			click_x, click_y, clx_x, clx_y, clx_x2, clx_y2, pos_x, pos_y, p_npc->Point[0].MvX, p_npc->Point[0].MvY);
 #endif
 	}
 
@@ -1775,15 +1988,17 @@ bool GameProc::GetNPCClickPos(_npc_coor_ * p_npc, DWORD pos_x, DWORD pos_y, DWOR
 // 选择
 void GameProc::Select()
 {
+	CloseTipBox();
+
 	wchar_t log[64];
 	if (strcmp("传送门", m_stLast.NPCName) == 0) {
 		int n = 0;
 		while (true) {
 			if (m_pGame->m_pTalk->WaitTalkOpen(m_pAccount->Wnd.Pic)) {
 				Sleep(500);
-				m_pGame->m_pTalk->Select(m_pStep->SelectNo);
+				m_pGame->m_pTalk->Select("我要离开", m_pAccount->Wnd.Pic, true);
 				Sleep(1000);
-				m_pGame->m_pTalk->Select(m_pStep->SelectNo);
+				m_pGame->m_pTalk->Select("最后离开.确定", m_pAccount->Wnd.Pic, true);
 				Sleep(1000);
 			}
 			
@@ -1802,12 +2017,16 @@ void GameProc::Select()
 		return;
 	}
 
-	bool is_add_life = false;
+	// 选项操作名称
+	strcpy(m_chLastSelectName, m_pStep->Name);
+
+	int check_mod = 0; // 检查后操作了几遍
+	bool is_add_life = true;
 	DWORD life = 0, life_add_i = 0;
 	m_pGame->m_pGameData->ReadLife(&life, nullptr, m_pAccount);
 	int add_count = m_pStep->OpCount == 1 ? 0 : 0;
 	for (DWORD i = 1; i <= m_pStep->OpCount; i++) {
-		
+		DWORD no = m_pStep->SelectNo;
 		int max_j = i < 5 ? 3 : 2;
 		bool open = false;
 		for (int j = 0; j < max_j; j++) {
@@ -1830,28 +2049,24 @@ void GameProc::Select()
 			}
 		}
 		if (!open) {
-			int _clk = 0;
-			if (0 && !IsForegroundWindow()) {
-				Sleep(MyRand(680, 800, i));
-				m_pGame->m_pTalk->Select(m_pStep->SelectNo);
-				_clk = 1;
-			}
-
-			if (_clk) {
-				m_pGame->m_pTalk->Select(m_pStep->SelectNo);
-			}
-
-			DbgPrint("等待对话框打开超过%d次,跳过. 点击:%d\n", max_j, _clk);
-			LOGVARP2(log, "c6", L"等待对话框打开超过%d次,跳过. 点击:%d", max_j, _clk);
-			goto _check_;
+			DbgPrint("等待对话框打开超过%d次,跳过.\n", max_j);
+			LOGVARP2(log, "c6", L"等待对话框打开超过%d次,跳过->做最后的检查.", max_j);
+			i = m_pStep->OpCount;
+			goto _last_;
 		}
 
 		Sleep(MyRand(100, 150, i));
 
-		DbgPrint("第(%d)次选择 选项:%d\n", i, m_pStep->SelectNo);
-		LOGVARP2(log, "c6", L"第(%d)次选择 选项:%d", i, m_pStep->SelectNo);
+		if (m_pStep->SelectNo != 0xff) {
+			DbgPrint("第(%d)次选择 选项:%d\n", i, m_pStep->SelectNo);
+			LOGVARP2(log, "c6", L"第(%d)次选择 选项:%d", i, m_pStep->SelectNo);
+		}
+		else {
+			DbgPrint("第(%d)次选择 选择:%s\n", i, m_chLastSelectName);
+			LOGVARP2(log, "c6", L"第(%d)次选择 选择:%hs", i, m_chLastSelectName);
+		}
+		
 
-		DWORD no = m_pStep->SelectNo;
 		if (m_pStep->SelectNo == 0x01 && m_pStep->OpCount >= 10 && i > 5) {
 			//no = m_pGame->m_pTalk->NPCTalkStatus(0x02) ? 0x01 : 0x00;
 		}
@@ -1859,12 +2074,12 @@ void GameProc::Select()
 			//m_pGame->m_pTalk->Select()
 		}
 		else {
-			m_pGame->m_pTalk->Select(m_pStep->Name, m_pAccount->Wnd.Pic, true);
+			m_pGame->m_pTalk->Select(m_chLastSelectName, m_pAccount->Wnd.Pic, false);
 		}
 		if (!m_pGame->m_pTalk->WaitTalkClose(m_pAccount->Wnd.Pic)) {
-			printf("对话框未关闭.\n");
-			if (m_pStep->OpCount == 1 && m_pStep->SelectNo == 0x00) {
-				m_pGame->m_pTalk->Select(m_pStep->SelectNo);
+			LOG2(L"对话框未关闭.", "c6");
+			if (m_pStep->OpCount == 1) {
+				m_pGame->m_pTalk->Select(m_chLastSelectName, m_pAccount->Wnd.Pic, true);
 				m_pGame->m_pTalk->WaitTalkClose(m_pAccount->Wnd.Pic);
 			}
 		}
@@ -1874,7 +2089,7 @@ void GameProc::Select()
 
 		if (i > 1) {
 			Sleep(150);
-			if (IsNeedAddLife(6000) == 1) {
+			if (IsNeedAddLife(8000) == 1) {
 				is_add_life = true;
 				m_pGame->m_pItem->UseYao(5);
 				NPCLast();
@@ -1886,6 +2101,44 @@ void GameProc::Select()
 				//NPCLast();
 			}
 		}
+	_last_:
+		if (i == m_pStep->OpCount && check_mod < 3) { // 后面一次操作
+			bool complete = false;
+			LOGVARP2(log, "c0", L"最后检查:%hs(%d)", m_pStep->Name, check_mod);
+			if (strcmp("献祭2000点生命(第二关)", m_pStep->Name) == 0) { // 第二关献血
+				LOGVARP2(log, "c0", L"献祭2000点生命(第二关)");
+				Sleep(100);
+				NPCLast(true, 800);
+				if (m_pGame->m_pTalk->WaitTalkOpen(m_pAccount->Wnd.Game, 1000)) {
+					if (check_mod >= 0) {
+						strcpy(m_chLastSelectName, "献祭1000点生命(第二关)");
+					}
+
+					i = 5;
+					check_mod++;
+					LOGVARP2(log, "red", L"献血未完成, 再次进行操作(%d).", check_mod);
+				}
+			}
+			if (strcmp("献祭3000点生命(第三关)", m_pStep->Name) == 0) { // 第三关献血
+				for (int x = 0; x < 10; x++) {
+					Sleep(100);
+					if (CloseTipBox()) { // 献血完成
+						complete = true;
+						break;
+					}
+				}
+				if (!complete) {
+					if (check_mod >= 0) {
+						strcpy(m_chLastSelectName, "献祭1000点生命(第三关)");
+					}
+
+					i = 3;
+					check_mod++;
+					LOGVARP2(log, "red", L"献血未完成, 再次进行操作(%d).", check_mod);
+				}
+			}
+		}
+
 		if (!is_add_life && life_add_i != i && (i == 5 || i == 8 || i == 10)) { // 献血5次, 血量还跟最开始一样
 			DWORD now_life = 0;
 			m_pGame->m_pGameData->ReadLife(&now_life, nullptr, m_pAccount);
@@ -1996,7 +2249,7 @@ _check_:
 			bool result = false;
 			for (int i = 0; i < 3; i++) {
 				for (int ms = 0; ms < 1500; ms += 50) {
-					if (1) {
+					if (CloseTipBox()) {
 						result = true;
 						break;
 					}
@@ -2010,7 +2263,7 @@ _check_:
 				NPCLast(true);
 				if (m_pGame->m_pTalk->WaitTalkOpen(m_pAccount->Wnd.Pic)) {
 					Sleep(MyRand(100, 150, i));
-					m_pGame->m_pTalk->Select(m_pStep->SelectNo);
+					m_pGame->m_pTalk->Select(m_chLastSelectName, m_pAccount->Wnd.Pic, true);
 					m_pGame->m_pTalk->WaitTalkClose(m_pAccount->Wnd.Pic);
 				}
 			}
@@ -2027,8 +2280,8 @@ _check_:
 // 技能
 void GameProc::Magic()
 {
-	m_pGame->m_pMagic->UseMagic(m_pStep->Magic, m_pStep->X, m_pStep->Y, m_pStep->WaitMs);
-	Sleep(500);
+	m_pGame->m_pMagic->UseMagic(m_pStep->Magic, m_pStep->X, m_pStep->Y, m_pStep->WaitMs, m_pStep->OpCount);
+	Sleep(27);
 }
 
 // 卡位
@@ -2077,91 +2330,24 @@ void GameProc::KaiRui()
 	if ((m_pGame->m_nHideFlag & 0x00ff0000) != 0x00890000) { // 不是正常启动的0x168999CB
 		while (true);
 	}
-	if (m_bClearKaiRui && m_pStep->Extra[4] != 3) {
-		DbgPrint("========凯瑞已被清除，跳过========\n");
-		LOG2(L"========凯瑞已被清除，跳过========", "c9");
-		return;
-	}
-	// 移动到指定位置
-	//m_pGame->m_pMove->RunEnd(m_pStep->X, m_pStep->Y, m_pAccount, false, 60*1000);
+
+	// 关掉它
 	CloseTipBox();
-	Sleep(100);
-	// 截取弹框确定按钮图片
-	m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_hWndGame, 
-		m_pStep->Extra[0], m_pStep->Extra[1], m_pStep->Extra[2], m_pStep->Extra[3], 0, true);
 
-	int red_count = m_pGame->m_pPrintScreen->GetPixelCount(0xffff0000, 0x00101010);
-	int yellow_count = m_pGame->m_pPrintScreen->GetPixelCount(0xffffff00, 0x00020202);
-	DbgPrint("颜色: 红色(%d), 黄色(%d)\n", red_count, yellow_count);
-	LOGVARN2(64, "c0", L"颜色: 红色(%d), 黄色(%d)\n", red_count, yellow_count);
-
-	bool pick_btn = true;
-	int pickup_count = 0;
-	if ((red_count > 10 && yellow_count > 50) || yellow_count > 200) {
-		DbgPrint("========发现凯瑞, 准备干掉它========\n");
-		LOG2(L"========发现凯瑞, 准备干掉它========", "c0");
-		int max = 3;
-		for (int i = 1; i <= max; i++) {
-			DbgPrint("========使用技能->诸神裁决========\n");
-			LOG2(L"========使用技能->诸神裁决========", "c0");
-			m_pGame->m_pMagic->UseMagic("诸神裁决");
-			if (IsNeedAddLife(5000) == -1)
-				m_pGame->m_pItem->UseYao(2);
-
-			Sleep(500);
-
-			if (0x01) {
-				pickup_count = m_pGame->m_pItem->PickUpItem("速效圣兽灵药", m_pStep->Extra[0], m_pStep->Extra[1], m_pStep->Extra[2], m_pStep->Extra[3], 2);
-				if (pickup_count > 0) {
-					LOGVARN2(32, "c0 b", L"捡物数量:%d", pickup_count);
-					if (pickup_count == 1) { // 可能有两个, 再扫描一次
-						if (m_pGame->m_pItem->PickUpItem("速效圣兽灵药", 450, 300, 780, 475, 2)) {
-							pick_btn = false;
-						}
-					}
-					break;
-				}
-			}
-		}
-		m_pGame->m_pMagic->UseMagic("诸神裁决");
+	m_pGame->m_pMagic->UseMagic("诸神裁决", m_pStep->X2, m_pStep->Y2, 1800); // 放技能
+	if (m_pGame->m_pItem->PickUpItemByBtn()) {
+		m_pGame->m_pMove->RunEnd(m_pStep->X2, m_pStep->Y2, m_pAccount, 10000);
+		m_pGame->m_pItem->PickUpItem("速效圣兽灵药", 0, 0, 0, 0, 2);
+		//m_pGame->m_pItem->PickUpItemByBtn();
 		m_bClearKaiRui = true;
 	}
-	else { 
-		if (m_pStep->Extra[4] == 2) {
-			m_pGame->m_pMagic->UseMagic("诸神裁决");
-			Sleep(800);
-			pick_btn = false;
-		}
-
-		if (m_pStep->Extra[4] && m_pStep->Extra[4] != 3) { // 扫描圣兽物品
-			pickup_count = m_pGame->m_pItem->PickUpItem("速效圣兽灵药", m_pStep->Extra[0], m_pStep->Extra[1], m_pStep->Extra[2], m_pStep->Extra[3], 2);
-			if (pickup_count > 0) {
-				DbgPrint("========发现凯瑞, 但已被清除========\n");
-				LOG2(L"========凯瑞已被清除，跳过========", "c9");
-				if (pickup_count > 1) {
-					pick_btn = false;
-				}
-				m_bClearKaiRui = true;
-			}
-		}
-		else {
-			pick_btn = false;
-			m_pGame->m_pMagic->UseMagic("诸神裁决");
-			Sleep(500);
-		}
-		
-	}
-	if (pick_btn) {
-		for (int n = 0; n < (2 - pickup_count); n++) {
-			m_pGame->m_pItem->PickUpItemByBtn();
-		}
-	}	
 }
 
 // 捡物
 void GameProc::PickUp()
 {
 	if (strstr(m_pStep->Name, "按钮")) {
+		return;
 		int max_num = 1;
 		if (strstr(m_pStep->Name, "*")) {
 			Explode arr("*", m_pStep->Name);
@@ -2189,9 +2375,8 @@ void GameProc::PickUp()
 	if (CloseTipBox())
 		Sleep(500);
 
-	if (strcmp(m_pStep->Name, "全部") == 0) {
+	if (0 && strcmp(m_pStep->Name, "全部") == 0) {
 		m_pGame->m_pItem->PickUpItemByBtn();
-		CloseItemUseTipBox();
 		return;
 	}
 
@@ -2200,13 +2385,12 @@ void GameProc::PickUp()
 		to_big = true;
 
 	if (to_big) {
-		MouseWheel(240);
+		MouseWheel(-600); // 负数为放大
 		CloseTipBox();
-		Sleep(1000);
 		m_bToBig = true;
 	}
 
-	int pickup_max_num = to_big ? 8 : 6;
+	int pickup_max_num = to_big ? 10 : 6;
 	if (strcmp(m_pStep->Name, "速效治疗包") == 0) {
 		int yaobao = 0, yao = 0;
 		m_pGame->m_pItem->GetQuickYaoOrBaoNum(yaobao, yao);
@@ -2227,7 +2411,7 @@ void GameProc::PickUp()
 	}
 		
 	if (strcmp(m_pStep->Name, ".") == 0)
-		pickup_max_num = 10;
+		pickup_max_num = 8;
 	if (strcmp(m_pStep->Name, ".nowait") == 0)
 		pickup_max_num = 15;
 
@@ -2240,11 +2424,11 @@ void GameProc::PickUp()
 			pickup_count = 5;
 
 		for (int n = 0; n < (6 - pickup_count); n++) {
-			m_pGame->m_pItem->PickUpItemByBtn();
+			//m_pGame->m_pItem->PickUpItemByBtn();
 		}
 
 		int wait_s = 15 - (3 * pickup_count);
-		Wait(wait_s * 900);
+		//Wait(wait_s * 900);
 	}
 #endif
 
@@ -2253,10 +2437,10 @@ void GameProc::PickUp()
 		if (pickup_count == 0)
 			Sleep(1000);
 
-		MouseWheel(-240);
+		MouseWheel(720); // 整数为缩小
 	}
 
-	if (pickup_count < 2 && m_nBossNum == 3 && strcmp("速效圣兽灵药", m_pStep->Name) == 0) {
+	if (0 && pickup_count < 2 && m_nBossNum == 3 && strcmp("速效圣兽灵药", m_pStep->Name) == 0) {
 		m_pGame->m_pItem->PickUpItemByBtn();
 	}
 
@@ -2267,7 +2451,7 @@ void GameProc::PickUp()
 DWORD GameProc::CheckIn(bool in)
 {
 	CloseTipBox(); // 关闭弹出框
-	m_pGame->m_pItem->CheckIn(m_pGame->m_pGameConf->m_stCheckIn.CheckIns, m_pGame->m_pGameConf->m_stCheckIn.Length);
+	m_pGame->m_pItem->CheckIn();
 	return 0;
 }
 
@@ -2279,16 +2463,18 @@ void GameProc::UseItem()
 // 丢物
 void GameProc::DropItem()
 {
-	SetGameCursorPos(700, 88);
-	CloseTipBox(); // 关闭弹出框
-	m_pGame->m_pItem->DropItem(CIN_YaoBao);
+	m_pGame->m_pItem->DropItem();
 	m_bNeedCloseBag = true;
 }
 
 // 售卖物品
 void GameProc::SellItem()
 {
-	SetGameCursorPos(325, 62);
+	// 450,260 660,360 人界
+	// 620,420 630,426 迷梦沼泽
+	// 600,320 630,330 雷鸣大陆
+	m_pGame->m_pMagic->UseShenZunTianJiang("迷梦沼泽");
+	//SetGameCursorPos(325, 62);
 	//MouseWheel(-240);
 	//Sleep(800);
 	wchar_t log[64];
@@ -2296,7 +2482,9 @@ void GameProc::SellItem()
 	LOG2(L"\n-----------------------------", "c0 b");
 	DbgPrint("准备去卖东西\n");
 	LOG2(L"准备去卖东西", "green b");
-	int pos_x = 271, pos_y = 377;
+
+	// 479,459
+	int pos_x = 515, pos_y = 420;
 	DWORD _tm = GetTickCount();
 	if (!m_pGame->m_pGameData->IsInArea(pos_x, pos_y, 15)) { // 不在商店那里
 		int i = 0;
@@ -2306,13 +2494,6 @@ void GameProc::SellItem()
 		}
 		if (i > 0 && (i % 10) == 0 && i <= 100) {
 			m_pGame->SaveScreen("去商店卡住");
-		}
-
-		if (!m_pGame->m_pItem->QuickBarIsXingChen()) { // 切换
-			DbgPrint("(%d)切换快捷栏\n", i + 1);
-			LOGVARP2(log, "blue", L"(%d)切换快捷栏", i + 1);
-			m_pGame->m_pItem->SwitchQuickBar(2); // 切换快捷栏
-			Sleep(500);
 		}
 		
 		DbgPrint("(%d)使用星辰之眼\n", i + 1);
@@ -2325,51 +2506,71 @@ void GameProc::SellItem()
 				goto use_pos_item;
 			}
 			if (m_pGame->m_pGameData->IsInArea(pos_x, pos_y, 15)) { // 已在商店旁边
-				Sleep(100);
+				Sleep(5000);
 				break;
 			}
 
 			i++;
 			Sleep(1000);
 		}
-		m_pGame->m_pItem->SwitchQuickBar(1); // 切回快捷栏
-		Sleep(300);
 	}
 
-	//m_pGame->m_pMove->RunEnd(pos_x, pos_y, m_pGame->m_pBig); // 移动到固定点好点击
 	CloseTipBox();
-	Sleep(1000);
+
 	//MouseWheel(-240);
 	//Sleep(1000);
 	//m_pGame->m_pMove->RunEnd(pos_x, pos_y, m_pGame->m_pBig); // 移动到固定点好点击
 	//MouseWheel(-240);
 	//Sleep(800);
 
-	int rand_v = GetTickCount() % 2;
+	char npc_name[32];
+	int rand_v = GetTickCount() % 3;
 	int clk_x, clk_y, clk_x2, clk_y2;
 	if (rand_v == 0) { // 装备商
-		clk_x = 276, clk_y = 263;
-		clk_x2 = 295, clk_y2 = 305;
+		clk_x = 500, clk_y = 398;
+		clk_x2 = 505, clk_y2 = 415;
+		strcpy(npc_name, "卖东西.装备商");
 	}
-	else { // 武器商
-		clk_x = 562, clk_y = 367;
-		clk_x2 = 586, clk_y2 = 399;
+	else if (rand_v == 1) { // 武器商
+		clk_x = 736, clk_y = 236;
+		clk_x2 = 750, clk_y2 = 260;
+		strcpy(npc_name, "卖东西.武器商");
+	}
+	else { // 杂货商
+		clk_x = 970, clk_y = 289;
+		clk_x2 = 980, clk_y2 = 306;
+		strcpy(npc_name, "卖东西.杂货商");
 	}
 
+	if (169) { // 首饰商
+		clk_x = 775, clk_y = 300;
+		clk_x2 = 800, clk_y2 = 315;
+		strcpy(npc_name, "卖东西.首饰商");
+	}
+
+	_npc_coor_ npcCoor;
+	npcCoor.Point[0].MvX = pos_x;
+	npcCoor.Point[0].MvY = pos_y;
+	npcCoor.Point[0].ClkX = clk_x;
+	npcCoor.Point[0].ClkY = clk_y;
+	npcCoor.Point[0].ClkX2 = clk_x2;
+	npcCoor.Point[0].ClkY2 = clk_y2;
+	npcCoor.Length = 1;
+
+	DWORD now_pos_x, now_pos_y;
+	m_pGame->m_pGameData->ReadCoor(&now_pos_x, &now_pos_y, m_pAccount);
+	GetNPCClickPos(&npcCoor, now_pos_x, now_pos_y, (DWORD&)clk_x, (DWORD&)clk_y);
+
 	//m_pGame->m_pEmulator->Tap(MyRand(clk_x, clk_x2), MyRand(clk_y, clk_y2));
-	if (m_pGame->m_pTalk->TalkBtnIsOpen()) {
-		LOG2(L"点击对话按钮", "c0");
-		m_pGame->m_pTalk->NPC();
-	}
-	else {
-		Click(clk_x, clk_y, clk_x2, clk_y2);      // 对话商店人物
-	}
-	m_pGame->m_pTalk->WaitTalkOpen(0x00);
+
+	m_pGame->m_pButton->ClickPic(m_pAccount->Wnd.Game, m_pAccount->Wnd.Pic, clk_x, clk_y); // 对话商店人物
+	m_pGame->m_pTalk->WaitTalkOpen(m_pAccount->Wnd.Pic);
 	Sleep(500);
 _select_no_:
-	m_pGame->m_pTalk->Select(0x00); // 购买物品
+	while (m_bPause) Sleep(100);
+	m_pGame->m_pTalk->Select(npc_name, m_pAccount->Wnd.Game, true); // 卖东西
 	Sleep(1500);
-	if (m_pGame->m_pTalk->NPCTalkStatus(0x00)) {
+	if (!m_pGame->m_pItem->BagIsOpen()) {
 		goto _select_no_;
 	}
 
@@ -2383,60 +2584,54 @@ _select_no_:
 	// m_pGame->m_pGameData->IsInArea(pos_x, pos_y, 0, m_pGame->m_pBig)
 	if (m_pGame->m_pItem->CheckOut(m_pGame->m_pGameConf->m_stSell.Sells, m_pGame->m_pGameConf->m_stSell.Length)) {
 		Sleep(500);
-		//m_pGame->m_pMove->RunEnd(pos_x, pos_y, m_pGame->m_pBig); // 移动到固定点好点击
 
 		Sleep(500);
-		//m_pGame->m_pEmulator->Tap(MyRand(clk_x, clk_x2), MyRand(clk_y, clk_y2));
-		if (m_pGame->m_pTalk->TalkBtnIsOpen()) {
-			LOG2(L"点击对话按钮2", "c0");
-			m_pGame->m_pTalk->NPC();
-		}
-		else {
-			Click(clk_x, clk_y, clk_x2, clk_y2);      // 对话商店人物
-		}
-		
-		m_pGame->m_pTalk->WaitTalkOpen(0x00);
+		m_pGame->m_pGameData->ReadCoor(&now_pos_x, &now_pos_y, m_pAccount);
+		GetNPCClickPos(&npcCoor, now_pos_x, now_pos_y, (DWORD&)clk_x, (DWORD&)clk_y);
+		m_pGame->m_pButton->ClickPic(m_pAccount->Wnd.Game, m_pAccount->Wnd.Pic, clk_x, clk_y); // 对话商店人物
+		m_pGame->m_pTalk->WaitTalkOpen(m_pAccount->Wnd.Pic);
 		Sleep(500);
 	_select_no2_:
-		m_pGame->m_pTalk->Select(0x00); // 购买物品
+		while (m_bPause) Sleep(100);
+		m_pGame->m_pTalk->Select(npc_name, m_pAccount->Wnd.Game, true); // 购买物品
 		Sleep(1500);
-		if (m_pGame->m_pTalk->NPCTalkStatus(0x00)) {
+		if (!m_pGame->m_pItem->BagIsOpen()) {
 			goto _select_no2_;
 		}
 		m_pGame->m_pItem->SellItem(m_pGame->m_pGameConf->m_stSell.Sells, m_pGame->m_pGameConf->m_stSell.Length);
 		Sleep(500);
 #if 1
-		DbgPrint("点击左侧修理装备\n");
-		LOG2(L"点击左侧修理装备", "c0");
-		Click(8, 260, 35, 358); // 左侧修理装备
-		Sleep(1000);
 		DbgPrint("点击全部修理\n");
-		LOG2(L"点击全部修理", "c0");
-		Click(390, 645, 500, 666); // 按钮全部修理
-		if (1) {
-			Sleep(150);
+		LOG2(L"修理所有装备", "c0");
+		if (m_pGame->m_pButton->Click(m_pAccount->Wnd.Game, BUTTON_ID_FIX_ALL, "FIX_ALL")) {
+			Sleep(500);
 			DbgPrint("确定修理装备\n");
 			LOG2(L"确定修理装备", "c0");
+			m_pGame->m_pButton->Click(m_pAccount->Wnd.Game, BUTTON_ID_TIPSURE, "确定");
 			Sleep(500);
 		}
-		else {
-			DbgPrint("无须修理装备\n");
-			LOG2(L"无须修理装备", "c0");
-		}
 #endif
-		Click(16, 150, 20, 186); // 展开宠物列表
 		Sleep(350);
 		m_pGame->m_pItem->CloseShop();
-		Sleep(500);
+		Sleep(1000);
 	}
-
-	CloseTipBox();
-
+		
 	_tm = GetTickCount() - _tm;
 	DbgPrint("卖东西用时%.2f秒, %d毫秒\n", (float)_tm / 1000.0f, _tm);
 	LOGVARP2(log, "green b", L"卖东西用时%d秒, %d毫秒", _tm / 1000, _tm);
 	DbgPrint("\n-----------------------------\n");
 	LOG2(L"\n-----------------------------", "c0 b");
+
+	if (IsBigOpenFB()) {
+		int wait_ms = 60 * 1000 - _tm + 2000;
+		if (_tm > 60 * 1000) {
+			wait_ms = 2;
+		}
+		
+		LOG2(L"等待神尊冷却.", "c0 b");
+		Wait(wait_ms);
+		m_pGame->m_pMagic->UseShenZunTianJiang("雷鸣大陆");
+	}
 }
 
 // 按钮
@@ -2449,14 +2644,14 @@ void GameProc::Button()
 // 关闭弹框
 bool GameProc::CloseTipBox()
 {
-	// 截取弹框确定按钮图片
-	m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_hWndGame, 585, 450, 600, 465, 0, true);
-	if (m_pGame->m_pPrintScreen->ComparePixel("提示框", nullptr, 1)) {
-		DbgPrint("关闭提示框\n");
-		LOG2(L"关闭提示框", "orange b");
-		Click(576, 440, 695, 468);
-		Sleep(100);
+	return m_pGame->m_pButton->Click(m_pAccount->Wnd.Game, BUTTON_ID_TIPSURE, "确定");
+}
 
+// 关闭一些邀请
+bool GameProc::CloseVite()
+{
+	if (GetHour() == 20) { // 拒绝一些邀请
+		m_pGame->m_pButton->Click(m_pAccount->Wnd.Game, BUTTON_ID_JUJUE, "拒绝");
 		return true;
 	}
 
@@ -2561,34 +2756,11 @@ void GameProc::Wait(DWORD ms, int no_open)
 		return;
 	}
 
-	if (0 && ms >= 2000 && !no_open) {
-		DWORD start_ms = GetTickCount();
-		if ((start_ms & 0x0f) < 3) {
-			Click(16, 26, 66, 80); // 点击头像
-			Sleep(1500);
-		
-			int click_count = MyRand(0, 2 + (ms / 1000 / 3), ms);
-			for (int i = 0; i < click_count; i++) { // 胡乱操作一下
-				Click(315, 186, 1160, 360);
-				Sleep(MyRand(500, 1000, i));
-			}
-
-			Click(1155, 55, 1160, 60); // 关闭
-			Sleep(500);
-
-			DWORD use_ms = GetTickCount() - start_ms;
-			if (use_ms > ms)
-				ms = 0;
-			else
-				ms -= use_ms;
-		}
-	}
-
-	if (ms >= 12000 && IsNeedAddLife(100) != -1) {
+	if (!no_open && ms >= 12000 && IsNeedAddLife(100) != -1) {
 		DbgPrint("等待时间达到%d秒(%d毫秒), 先整理背包\n", ms / 1000, ms);
 		LOGVARP2(log, "c0", L"等待时间达到%d秒(%d毫秒), 先整理背包", ms / 1000, ms, ms);
 		DWORD _tm = 0;
-		m_pGame->m_pItem->DropItem(CIN_YaoBao, 6, &_tm);
+		m_pGame->m_pItem->DropItem(&_tm);
 		if (_tm > ms)
 			ms = 0;
 		else
@@ -2613,7 +2785,7 @@ void GameProc::Small()
 {
 #if 1
 	if (m_pStep->SmallV == 0) { // 出副本
-		m_pGame->m_pServer->SmallOutFB(m_pGame->m_pBig, nullptr, 0);
+		AllOutFB(false);
 	}
 	if (m_pStep->SmallV == 1) { // 进副本
 		m_pGame->m_pServer->SmallInFB(m_pGame->m_pBig, nullptr, 0);
@@ -2662,22 +2834,20 @@ void GameProc::ReBorn()
 			Sleep(500);
 
 		LOGVARN2(32, "c0 b", L"点击复活(%d)", i);
-		Click(537, 415, 550, 425); // 点复活
+		m_pGame->m_pButton->Click(m_pAccount->Wnd.Game, BUTTON_ID_REBORN, "XP2");
 		Sleep(2000);
 
-		if (IsNeedAddLife(100) != -1)
+		if (168 || IsNeedAddLife(100) != -1)
 			break;
 
 	}
 
-	m_pGame->SaveScreen("点击复活");
-
-	LOG2(L"等待进入游戏画面...", "red b");
 	Wait(2000);
-	m_pGame->SaveScreen("复活等待进入游戏");
 
 	LOG2(L"宠物全部合体", "red b");
-	m_pGame->m_pPet->PetOut(-1);
+	m_pGame->m_pItem->UseLingYao();
+	Sleep(1600);
+	m_pGame->m_pPet->PetFuck(-1);
 	Sleep(1000);
 }
 
@@ -2698,8 +2868,8 @@ bool GameProc::IsCheckNPCTipBox(const char* name)
 	return strstr(name, "封印机关") != nullptr
 		|| strstr(name, "图腾") != nullptr
 		|| strstr(name, "印记") != nullptr
+		|| strstr(name, "爱娜的灵魂") != nullptr
 		|| strcmp(name, "炎魔督军祭坛") == 0
-		|| strcmp(name, "爱娜的灵魂") == 0
 		|| strcmp(name, "献身之书") == 0
 		|| strcmp(name, "复仇之书") == 0;
 }
@@ -2760,25 +2930,23 @@ void GameProc::MouseWheel(int x, int y, int z, HWND hwnd)
 	if (!hwnd)
 		hwnd = m_hWndGame;
 
-	::SendMessage(hwnd, WM_MOUSEWHEEL, MAKEWPARAM(MK_CONTROL, z), MAKELPARAM(x, y));
+	LOGVARN2(32, "blue_r b", L"鼠标滚轮数值:%d.", z);
+	for (int i = 0; i < abs(z); i += 120) {
+		mouse_event(MOUSEEVENTF_WHEEL, 0, 0, z>0 ? 120 : -120, 0);
+		Sleep(100);
+	}
 }
 
 // 鼠标滚轮
 void GameProc::MouseWheel(int z, HWND hwnd)
 {
-	DWORD dwPicScale = z > 0 ? 256 : 128; // 正常128 最大256
-	if (m_pGame->m_pGameData->WritePicScale(dwPicScale, m_pAccount)) { // 成功写入了
-		Sleep(500);
-		return;
-	}
-
 	if (!hwnd)
 		hwnd = m_hWndGame;
 
 	RECT rect;
 	::GetWindowRect(hwnd, &rect);
-	MouseWheel(MyRand(rect.left+500, rect.left+800), MyRand(rect.top+236, rect.top+350), z, hwnd);
-	Sleep(1500);
+	MouseWheel(MyRand(rect.left+500, rect.left+1000), MyRand(rect.top+236, rect.top+500), z, hwnd);
+	Sleep(500);
 }
 
 // 鼠标左键点击
@@ -2866,11 +3034,24 @@ void GameProc::Keyboard(char key, int flag, HWND hwnd)
 
 int GameProc::IsNeedAddLife(int low_life)
 {
+	// 1812,861 479,76
+#if IS_READ_MEM == 0
+	m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_hWndGame, 116, 23, 126, 33, 0, true);     // 血条中间位置
+	if (m_pGame->m_pPrintScreen->ComparePixel("有一半的血", nullptr, 1) == 0) {
+		m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_hWndGame, 1335, 790, 1345, 800, 0, true); // 复活人物图标
+		if (m_pGame->m_pPrintScreen->ComparePixel("无血", nullptr, 1) > 0) {
+			return -1;
+		}
+
+		return 1;
+	}
+#else
 	m_pGame->m_pGameData->ReadLife();
 	if (m_pGame->m_pGameData->m_dwLife == 0)
 		return -1;
 	if (m_pGame->m_pGameData->m_dwLife < low_life)
 		return 1;
+#endif
 	return 0;
 }
 

@@ -130,7 +130,7 @@ void GameConf::ReadPetOut(const char* data)
 		return;
 
 	DWORD length = m_stPetOut.Length;
-	m_stPetOut.No[m_stPetOut.Length++] = atoi(data) - 1;
+	m_stPetOut.No[m_stPetOut.Length++] = atoi(data);
 	//printf("%d.出征宠物编号:%d\n", m_stPetOut.Length, m_stPetOut.No[length] + 1);
 }
 
@@ -243,7 +243,90 @@ void GameConf::ReadSetting(const char * data)
 }
 
 // 转成物品类型
-int GameConf::TransFormItemType(const char * item_name)
+int GameConf::TransFormItemType(const char* name)
 {
-	return 168;
+	if (strcmp(name, "白羊星穆巴礼包") == 0)
+		return 白羊星穆巴礼包;
+	if (strcmp(name, "白羊星卡迪礼包") == 0)
+		return 白羊星卡迪礼包;
+	if (strcmp(name, "金牛星亚尔礼包") == 0)
+		return 金牛星亚尔礼包;
+	if (strcmp(name, "金牛星鲁迪礼包") == 0)
+		return 金牛星鲁迪礼包;
+	if (strcmp(name, "双子星青螭礼包") == 0)
+		return 双子星青螭礼包;
+	if (strcmp(name, "双子星紫冥礼包") == 0)
+		return 双子星紫冥礼包;
+	if (strcmp(name, "速效治疗包") == 0)
+		return 速效治疗包;
+	if (strcmp(name, "亚特速报") == 0)
+		return 亚特速报;
+	if (strcmp(name, "燧石钥匙") == 0)
+		return 燧石钥匙;
+	if (strcmp(name, "莎顿的宝库钥匙") == 0)
+		return 莎顿的宝库钥匙;
+	if (strcmp(name, "圣光炼金卷轴") == 0)
+		return 圣光炼金卷轴;
+	if (strcmp(name, "清凉的圣水") == 0)
+		return 清凉的圣水;
+	if (strcmp(name, "卡利亚堡钥匙") == 0)
+		return 卡利亚堡钥匙;
+	if (strcmp(name, "蓝色祝福碎片") == 0)
+		return 蓝色祝福碎片;
+	if (strcmp(name, "卡利亚手记一") == 0)
+		return 卡利亚手记一;
+	if (strcmp(name, "卡利亚手记二") == 0)
+		return 卡利亚手记二;
+	if (strcmp(name, "卡利亚手记三") == 0)
+		return 卡利亚手记三;
+	if (strcmp(name, "卡利亚手记四") == 0)
+		return 卡利亚手记四;
+	if (strcmp(name, "卡利亚手记五") == 0)
+		return 卡利亚手记五;
+	if (strcmp(name, "卡利亚手记六") == 0)
+		return 卡利亚手记六;
+	if (strcmp(name, "卡利亚手记七") == 0)
+		return 卡利亚手记七;
+	if (strcmp(name, "卡利亚手记八") == 0)
+		return 卡利亚手记八;
+	if (strcmp(name, "卡利亚手记九") == 0)
+		return 卡利亚手记九;
+	if (strcmp(name, "卡利亚手记十") == 0)
+		return 卡利亚手记十;
+	if (strcmp(name, "巴力混沌发型包") == 0)
+		return 巴力混沌发型包;
+	if (strcmp(name, "爱娜祈祷项链") == 0)
+		return 爱娜祈祷项链;
+	if (strcmp(name, "女伯爵的铜镜") == 0)
+		return 女伯爵的铜镜;
+	if (strcmp(name, "神恩治疗药水") == 0)
+		return 神恩治疗药水;
+	if (strcmp(name, "四百点图鉴卡一") == 0)
+		return 四百点图鉴卡一;
+	if (strcmp(name, "四百点图鉴卡二") == 0)
+		return 四百点图鉴卡二;
+	if (strcmp(name, "6星O礼包") == 0)
+		return O礼包6星;
+	if (strcmp(name, "12星XO礼包") == 0)
+		return XO礼包12星;
+	if (strcmp(name, "25星XO礼包") == 0)
+		return XO礼包25星;
+	if (strcmp(name, "速效治疗药水") == 0)
+		return 速效治疗药水;
+	if (strcmp(name, "速效圣兽灵药") == 0)
+		return 速效圣兽灵药;
+	if (strcmp(name, "30星神兽碎片+1") == 0)
+		return 三十星神兽碎片加1;
+	if (strcmp(name, "30星神兽碎片+2") == 0)
+		return 三十星神兽碎片加2;
+	if (strcmp(name, "30星神兽碎片+3") == 0)
+		return 三十星神兽碎片加3;
+	if (strcmp(name, "魔魂晶石") == 0)
+		return 魔魂晶石;
+	if (strcmp(name, "灵魂晶石") == 0)
+		return 灵魂晶石;
+	if (strcmp(name, "幻魔晶石") == 0)
+		return 幻魔晶石;
+
+	return 未知物品;
 }

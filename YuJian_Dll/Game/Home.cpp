@@ -145,6 +145,7 @@ bool Home::Verify()
 		return false;
 	}
 
+
 	Parse(result.c_str());
 	m_pGame->m_nVerifyNum++;
 	time_t a;
@@ -199,7 +200,7 @@ void Home::Parse(const char* msg)
 		return;
 	}
 
-	//printf("MsgPtr:%p --- %c\n", msgPtr, *statusPtr);
+	//printf("MsgPtr:%p\n", m_pRepsone);
 	if (strcmp(arr[1], m_MachineId) != 0) {
 		SetError(1, error_str);
 		return;

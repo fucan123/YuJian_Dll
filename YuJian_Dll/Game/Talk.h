@@ -19,6 +19,8 @@ public:
 	void Select(const char* name, HWND pic, bool show_log=true);
 	// NPC对话状态[对话框是否打开]
 	bool NPCTalkStatus(HWND pic);
+	// 等待商店打开
+	bool WaitShopOpen(DWORD ms = 0);
 	// 等待对话框打开
 	bool WaitTalkOpen(HWND pic, DWORD ms=0);
 	// 等待对话框关闭

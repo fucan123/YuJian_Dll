@@ -42,6 +42,13 @@ void LookImgNum::SetPixels(int* pixels, int width, int height, bool opengl, int 
 	m_nHeight = height;
 	memcpy(m_pPixels, pixels, width*height*byte);
 
+	for (int i = 0; i < 0; i++) {
+		for (int j = 0; j < width; j++) {
+			printf("%08X ", m_pPixels[i * width + j]);
+		}
+		printf("\n");
+	}
+
 	//printf("SetPixels Ok\n");
 }
 
@@ -61,7 +68,7 @@ int LookImgNum::GetNum(int color, int diff, int d_v)
 	int num = d_v;
 	char text[16];
 	if (!GetText(text, color, diff, &num))
-		return d_v;
+		d_v = 0;
 
 	//PrintWords(color, diff);
 	//printf("文字:%s 数字:%d\n", text, num);
@@ -72,7 +79,8 @@ int LookImgNum::GetNum(int color, int diff, int d_v)
 int LookImgNum::GetText(char* text, int color, int diff, int* pnum)
 {
 	m_nFindWords = 0;
-	FindWords(color, diff);
+	int count = FindWords(color, diff);
+	//printf("FindWords:%d.\n", count);
 
 	int num = 0;
 	int length = 0;
@@ -202,7 +210,7 @@ int LookImgNum::FindWords(int color, int diff)
 		if (start_x != -1 && (y_match_count == 0 || (x + 1) == m_nWidth)) {
 			//printf("找到字, 宽高:%d,%d 位置:%d-%d %d-%d\n", x-start_x, end_y - start_y + 1, start_x, x, start_y, end_y);
 
-			if ((x - start_x) >= m_nModelWidth - 2 && (end_y - start_y) >= m_nModelHeight - 2) {
+			if ((x - start_x) >= 3 && (end_y - start_y) >= m_nModelHeight - 2) {
 				m_WordInfos[m_nFindWords].StartX = start_x;
 				m_WordInfos[m_nFindWords].EndX = x - 1;
 				m_WordInfos[m_nFindWords].StartY = start_y;
@@ -220,14 +228,15 @@ int LookImgNum::FindWords(int color, int diff)
 // 打印字
 void LookImgNum::PrintWords(int color, int diff)
 {
+	printf("PrintWords:%d\n", m_nFindWords);
 	for (int i = 0; i < m_nFindWords; i++) {
 		for (int y = m_WordInfos[i].StartY; y <= m_WordInfos[i].EndY; y++) {
 			for (int x = m_WordInfos[i].StartX; x <= m_WordInfos[i].EndX; x++) {
 				if (IsThePixel(GetPixel(x, y), color, diff)) {
-					printf("1 ");
+					printf("1, ");
 				}
 				else {
-					printf(" ");
+					printf("0, ");
 				}
 			}
 			printf("\n");

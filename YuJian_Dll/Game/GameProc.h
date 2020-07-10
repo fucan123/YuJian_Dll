@@ -15,6 +15,8 @@ using namespace std;
 
 #define RUNRUN 1
 
+#define STEP_INDEX 13
+
 struct _step_;
 struct _account_;
 
@@ -52,6 +54,8 @@ public:
 	void ViteInTeam();
 	// 入队
 	void InTeam(_account_* account);
+	// 邀请进入副本
+	void ViteInFB(_account_* account);
 	// 进副本
 	void InFB(_account_* account);
 	// 所有人进副本
@@ -70,16 +74,20 @@ public:
 	void GoFBDoor(_account_* account);
 	// 开启副本
 	_account_* OpenFB();
+	// 所有出副本big=大号要出去否
+	void AllOutFB(bool big=false);
 	// 出副本
 	void OutFB(_account_* account);
 	// 获取开启副本帐号
 	_account_* GetOpenFBAccount();
+	// 获取时间小时
+	int  GetHour();
 	// 是否由大号开启副本
 	bool IsBigOpenFB();
 	// 继续副本
 	void ContinueInFB();
 	// 是否在副本
-	bool IsInFB(_account_* account=nullptr);
+	bool IsInFB(_account_* account);
 	// 执行副本流程
 	void ExecInFB();
 	// 执行流程
@@ -88,6 +96,10 @@ public:
 	bool StepIsComplete();
 	// 移动
 	void Move(bool check_time=false);
+	// 移动
+	void MoveOne();
+	// 移点
+	void MoveClick(bool check_time=false);
 	// 移至NPC
 	bool MoveNPC();
 	// 获取要移至位置
@@ -130,6 +142,8 @@ public:
 	bool Button(int button_id, DWORD sleep_ms=0, const char* name=nullptr);
 	// 关闭弹框
 	bool CloseTipBox();
+	// 关闭组队邀请
+	bool CloseVite();
 	// 关闭物品使用提示框
 	bool CloseItemUseTipBox();
 	// 关闭系统邀请提示框
@@ -236,6 +250,8 @@ public:
 	bool m_bLockGoFB = false;
 	// 是否在副本里面
 	bool m_bAtFB = false;
+	// 是否需要复活(第三关点机关那里不需要)
+	bool m_bReborn = true;
 	// 是否已清凯瑞
 	bool m_bClearKaiRui = false;
 	// 是否重置到记录步骤
@@ -281,6 +297,9 @@ public:
 	int m_nUpdateFBTimeLongTime = 0;
 	// 复活宠物时间
 	int m_nRevivePetTime = 0;
+
+	// 上一次对话之选项
+	char m_chLastSelectName[128];
 
 	// 上次的数据
 	struct {

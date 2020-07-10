@@ -28,7 +28,7 @@ _step_* GameStep::Current(Link<_step_*>& link)
 {
 	NODE<_step_*>* p = link.Current();
 
-	if (p) {
+	if (0 && p) {
 		printf("Current:%s\n", p->value->Cmd);
 	}
 	
@@ -332,6 +332,7 @@ bool GameStep::InitSteps(const char* path, const char* file)
 #else
 	printf("执行流程数量：%d\n", m_Step.size());
 #endif
+	m_iStepInitIndex = index;
 	m_Step = m_StepList[m_nStepCount];
 	ResetStep(index, 0x01);
 	m_nStepCount++;
@@ -348,6 +349,7 @@ bool GameStep::InitSteps(const char* path, const char* file)
 int GameStep::InitGoLeiMingSteps()
 {
 	ParseStep("移动 62,59", m_GoLeiMingStep); // 点击大法师
+	return 1;
 	ParseStep("点击 580,535 586,539", m_GoLeiMingStep); // 点击大法师
 	ParseStep("等待 2 1", m_GoLeiMingStep);
 	ParseStep("点击 708,598 720,606", m_GoLeiMingStep);
@@ -386,12 +388,17 @@ int GameStep::ParseStep(const char* data, Link<_step_*>& link)
 		case OP_MOVEFAR:
 		case OP_MOVERAND:
 		case OP_MOVEPICKUP:
+		case OP_MOVEONE:
 			if (!TransFormPos(explode[1], step)) {
 				printf("GameStep::InitSteps.TransFormPos失败:%s\n", explode[1]);
 				result = -1;
 			}
 			TransFormPos(explode[2], step.X2, step.Y2);
-			//printf("流程->移动:%d.%d至%d.%d\n", step.X, step.Y, step.X2, step.Y2);
+			step.OpCount = explode.GetValue2Int(3);
+			if (step.OpCode == OP_MOVE && (explode[3] == nullptr || strstr(explode[3], "#")))
+				step.OpCount = -1;
+
+			//printf("解析流程->移动:%d.%d至%d.%d 误差:%d\n", step.X, step.Y, step.X2, step.Y2, step.OpCount);
 			break;
 		case OP_MOVENPC:
 			step.p_npc = GetNpcCoor(explode[1]);
@@ -403,7 +410,15 @@ int GameStep::ParseStep(const char* data, Link<_step_*>& link)
 				//printf("NPC (%s) 信息已找到.\n", step.p_npc->Name);
 			}
 			break;
+		case OP_MOVECLICK:
+			TransFormPos(explode[1], step);
+			TransFormPos(explode[2], step.X2, step.Y2);
+			TransFormPos(explode[3], step.Clx, step.Cly);
+			TransFormPos(explode[4], step.Clx2, step.Cly2);
+			step.Extra[0] = explode.GetValue2Int(5);
+			break;
 		case OP_NPC:
+			step.p_npc = GetNpcCoor(explode[1]);
 			strcpy(step.NPCName, explode[1]);
 			if (explode.GetCount() > 2)
 				TransFormPos(explode[2], step);
@@ -448,16 +463,17 @@ int GameStep::ParseStep(const char* data, Link<_step_*>& link)
 				result = -1;
 			}
 			if (explode.GetCount() > 2) {
-				if (strstr(explode[2], ",")) { // 以下截图位置
-					TransFormPos(explode[2], step.Extra[0], step.Extra[1]);
+				if (strstr(explode[2], ",")) { // 技能砸的位置
+					TransFormPos(explode[2], step.X2, step.Y2);
 				}
-				if (explode.GetCount() > 3) {
+				if (explode.GetCount() > 3) { // 以下截图位置
 					TransFormPos(explode[3], step.Extra[2], step.Extra[3]);
 				}
 				if (explode.GetCount() > 4) {
 					step.Extra[4] = explode.GetValue2Int(4);
 				}
 			}
+			step.OpCount = -1;
 			break;
 		case OP_PICKUP:
 			strcpy(step.Name, explode[1]);
@@ -494,6 +510,8 @@ int GameStep::ParseStep(const char* data, Link<_step_*>& link)
 		case OP_CLICKCRAZ:
 			TransFormPos(explode[1], step);
 			TransFormPos(explode[2], step.X2, step.Y2);
+			TransFormPos(explode[1], step.Clx, step.Cly);
+			TransFormPos(explode[2], step.Clx2, step.Cly2);
 			step.OpCount = explode.GetValue2Int(3);
 			if (step.OpCount == 0)
 				step.OpCount = 1;
@@ -565,6 +583,10 @@ STEP_CODE GameStep::TransFormOP(const char* data)
 		return OP_MOVEPICKUP;
 	if (strcmp(data, "移至") == 0)
 		return OP_MOVENPC;
+	if (strcmp(data, "移次") == 0)
+		return OP_MOVEONE;
+	if (strcmp(data, "移点") == 0)
+		return OP_MOVECLICK;
 	if (strcmp(data, "NPC") == 0 || strcmp(data, "对话") == 0)
 		return OP_NPC;
 	if (strcmp(data, "选择") == 0 || strcmp(data, "选项") == 0)

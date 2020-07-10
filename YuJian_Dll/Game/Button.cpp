@@ -1,15 +1,16 @@
 #include "Game.h"
 #include "Button.h"
+#include <My/Common/C.h>
 #include <stdlib.h>
 
 MCButton::MCButton(Game * p)
 {
 	m_pGame = p;
-
+	//Click((HWND)0x00050510, BUTTON_ID_TIPSURE);
 	return;
 
 	HWND hWnd = (HWND)FindWindow(NULL, L"【魔域】");
-	hWnd = (HWND)0x00030660;
+	hWnd = (HWND)0x00060196;
 	HWND hWndPic = FindWindowEx(hWnd, NULL, NULL, NULL);
 
 	char mapName[32];
@@ -22,7 +23,17 @@ MCButton::MCButton(Game * p)
 
 	//Sleep(2600);
 
+	// 975,85 473,63 502,22
+	HWND pet = FindPetParentWndAtTop(hWnd);
+	printf("宠物操作父窗口:%08X\n", pet);
+	HWND petLifeWnds[4];
+	FindPetLifeWndAtTop(hWnd, petLifeWnds);
+	Click(pet, 0x000006F0, "CALL");
+	//Click((HWND)0x00010ABC, 15, 9);
+	//while (true) Sleep(169);
 	HideActivity(hWnd);
+
+	while (true) Sleep(169);
 
 	return;
 
@@ -49,16 +60,17 @@ MCButton::MCButton(Game * p)
 bool MCButton::HideActivity(HWND hwnd_own)
 {
 	if (!IsDisabled(hwnd_own, BUTTON_ID_FULI)) {
+		LOG2(L"隐藏右侧活动列表.", "c0 b");
 		return Click(hwnd_own, BUTTON_ID_ACTY);
 	}
-	return true;
+	return false;
 }
 
 // 按钮是否禁用
 bool MCButton::IsDisabled(HWND hwnd_own, int button_id)
 {
 	HWND hWnd, hWndParent;
-	if (!FindButtonWnd(hwnd_own, BUTTON_ID_FULI, hWnd, hWndParent))
+	if (!FindButtonWnd(hwnd_own, button_id, hWnd, hWndParent))
 		return true;
 
 	return IsDisabled(hWnd);
@@ -89,45 +101,48 @@ void MCButton::KeyUp(BYTE bVk)
 	keybd_event(bVk, 0, KEYEVENTF_KEYUP, NULL);
 }
 
+// 点击屏幕坐标
+bool MCButton::ClickScreen(int x, int y, int flag, bool left_click)
+{
+	return Click(NULL, x, y, flag, left_click);
+}
+
 // 点击游戏画面
-bool MCButton::ClickPic(HWND game, HWND pic, int x, int y)
+bool MCButton::ClickPic(HWND game, HWND pic, int x, int y, DWORD sleep_ms, bool left_click)
 {
 	::SetForegroundWindow(game);
 	HWND top = GetForegroundWindow();
 	if (top != game && top != pic) // 窗口不在最前
 		return false;
 
-	RECT rect;
-	::GetWindowRect(pic, &rect);
-	int width = rect.right - rect.left;
-	int height = rect.bottom - rect.top;
-	if (x <= 0 || x >= width)
-		return false;
-	if (y <= 0 || y >= height)
-		return false;
+	MouseMovePos(pic, x, y);
+	Sleep(sleep_ms);
 
-	SetCursorPos(rect.left + x, rect.top + y);
-	Sleep(100);
-
-	mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
-	mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+	if (left_click) {
+		mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+		mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+	}
+	else {
+		mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0);
+		mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
+	}
+	
 	return true;
 }
 
 // 点击对话选项
 bool MCButton::ClickTalk(HWND pic, int x, int y, bool moumov)
 {
-	HWND talkWnd = ::FindWindowEx(pic, NULL, NULL, NULL);
-	if (!talkWnd)
+	HWND talkWnd = FindTalkWnd(pic);
+	if (IsDisabled(talkWnd))
 		return false;
 
 	RECT rect;
 	::GetWindowRect(talkWnd, &rect);
 	if (moumov) {
-		
-		
-		SetCursorPos(rect.left + x, rect.top + y);
-		Sleep(500);
+		//LOGVARN2(64, "c6", L"鼠标:%d,%d(%d,%d | %d,%d)", rect.left + x, rect.top + y, rect.left, rect.top, x, y);
+		MouseMovePos(talkWnd, x, y);
+		Sleep(100);
 	}
 
 	DbgPrint("ClickTalk:%d,%d %d,%d(%08X)\n", rect.left, rect.top, x, y, talkWnd);
@@ -140,14 +155,28 @@ bool MCButton::ClickTalk(HWND pic, int x, int y, bool moumov)
 }
 
 // 点击按钮
-bool MCButton::Click(HWND hwnd, int x, int y, int flag)
+bool MCButton::Click(HWND hwnd, int x, int y, int flag, bool left_click)
 {
+#if 1
+	UINT uMsg = left_click ? WM_LBUTTONDOWN : WM_RBUTTONDOWN;
+	UINT uMsg2 = left_click ? WM_LBUTTONUP : WM_RBUTTONUP;
+	WPARAM wParam = left_click ? MK_LBUTTON : MK_RBUTTON;
 	if (flag & 0x01) {
-		::PostMessage(hwnd, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, y));
+		::PostMessage(hwnd, uMsg, wParam, MAKELPARAM(x, y));
 	}
 	if (flag & 0x02) {
-		::PostMessage(hwnd, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
+		::PostMessage(hwnd, uMsg2, 0, MAKELPARAM(x, y));
 	}
+#else
+	UINT uMsg = left_click ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_RIGHTDOWN;
+	UINT uMsg2 = left_click ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_RIGHTUP;
+	if (flag & 0x01) {
+		mouse_event(uMsg, 0, 0, 0, 0);
+	}
+	if (flag & 0x02) {
+		mouse_event(uMsg2, 0, 0, 0, 0);
+	}
+#endif
 	return true;
 }
 
@@ -156,31 +185,116 @@ bool MCButton::Click(HWND hwnd_own, int button_id, const char* text)
 {
 	HWND hWnd, hWndParent;
 	if (FindButtonWnd(hwnd_own, button_id, hWnd, hWndParent, text)) {
-		LRESULT r = ::SendMessage(hWndParent, WM_COMMAND, MAKEWPARAM(button_id, BN_CLICKED), (LPARAM)hWnd); // 点击按钮
-		printf("Click:%p(%p) %lld(%d)\n", hWnd, hWndParent, r, GetLastError());
+#if 1
+		SendMessage(hWndParent, WM_COMMAND, MAKEWPARAM(button_id, BN_CLICKED), (LPARAM)hWnd); // 点击按钮
+		//printf("Click:%p(%p) %lld(%d)\n", hWnd, hWndParent, r, GetLastError());
+#else
+		RECT rect;
+		GetWindowRect(hWnd, &rect);
+		MouseMovePos(NULL, MyRand(rect.left + 2, rect.left - 2), MyRand(rect.top + 2, rect.bottom - 2));
+		Sleep(100);
+		ClickScreen(0, 0);
+#endif
 		return true;
 	}
 	return false;
 }
 
 // 点击按钮
-bool MCButton::Click(HWND hwnd_own, int button_id, const char* text, int x, int y, int flag)
+bool MCButton::Click(HWND hwnd_own, int button_id, const char* text, int x, int y, int flag, bool left_click)
 {
 	HWND hWnd, hWndParent;
 	if (FindButtonWnd(hwnd_own, button_id, hWnd, hWndParent, text)) {
-		Click(hWnd, x, y, flag);
-		printf("Click:%p(%p)(%d)\n", hWnd, hWndParent, GetLastError());
+		Click(hWnd, x, y, flag, left_click);
+		// printf("Click:%p(%p)(%d)\n", hWnd, hWndParent, GetLastError());
 		return true;
 	}
 	return false;
 }
 
+// 点击按钮(坐标[屏幕的坐标])需要转换(相对于[hwnd_own的坐标])
+bool MCButton::ClickRel(HWND hwnd_own, int button_id, const char* text, int x, int y, int flag, bool left_click)
+{
+	int x2, y2;
+	m_pGame->m_pButton->CalcRelGamePos(x2, y2, hwnd_own, button_id, text);
+	x -= x2;
+	y -= y2;
+
+	return Click(hwnd_own, button_id, text, x, y, flag, left_click);
+}
+
 // 鼠标移动到指定位置
 void MCButton::MouseMovePos(HWND hWnd, int x, int y)
 {
-	RECT rect;
-	::GetWindowRect(hWnd, &rect);
-	SetCursorPos(rect.left + x, rect.top + y);
+	int screen_x = GetSystemMetrics(SM_CXSCREEN);
+	int screen_y = GetSystemMetrics(SM_CYSCREEN);
+
+	if (hWnd) {
+		RECT rect;
+		::GetWindowRect(hWnd, &rect);
+
+		x += rect.left;
+		y += rect.top;
+	}
+
+#if 1
+	POINT point;
+	if (GetCursorPos(&point)) { // 获取了鼠标的当前位置
+		int mv_x = x - point.x;
+		int mv_y = y - point.y;
+		int max = max(abs(mv_x), abs(mv_y));
+		int fx = mv_x >= 0 ? 1 : -1;
+		int fy = mv_y >= 0 ? 1 : -1;
+		for (int i = 1; i < max; ) {
+			
+			int dist_x = i * fx + point.x;
+			int dist_y = i * fy + point.y;
+
+			int flag = 0;
+			if (fx == 1 && dist_x > x) { // 超过移动位置x
+				dist_x = x;
+				flag++;
+			}
+			if (fx == -1 && dist_x < x) { // 超过移动位置x
+				dist_x = x;
+				flag++;
+			}
+
+			if (fy == 1 && dist_y > y) { // 超过移动位置y
+				dist_y = y;
+				flag++;
+			}
+			if (fy == -1 && dist_y < y) { // 超过移动位置Y
+				dist_y = y;
+				flag++;
+			}
+			if (flag >= 2)
+				break;
+
+			int rand_x = MyRand(1, 3);
+			int rand_y = MyRand(1, 3);
+
+			dist_x = dist_x * 65536 / screen_x;
+			dist_y = dist_y * 65536 / screen_y;
+			mouse_event(MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE, dist_x, dist_y, 0, 0);
+
+			i += max(rand_x, rand_y);
+		}
+	}
+#endif
+
+	x = x * 65536 / screen_x;
+	y = y * 65536 / screen_y;
+
+#if 0
+	POINT point;
+	GetCursorPos(&point);
+	mouse_event(MOUSEEVENTF_MOVE, x - point.x, y - point.y, 0, 0);
+
+	printf("MouseMovePos:%d,%d(%d,%d) %d,%d %d,%d\n", x, y, ox, oy, point.x, point.y, x - point.x, y - point.y);
+#else
+	mouse_event(MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE, x, y, 0, 0);
+#endif
 }
 
 // 存入钱
@@ -218,6 +332,89 @@ bool MCButton::CheckButton(HWND hwnd_own, int button_id, const char* text)
 	return FindButtonWnd(hwnd_own, button_id, hWnd, hWndParent, text);
 }
 
+// 获取顶部宠物血量窗口
+int MCButton::FindPetLifeWndAtTop(HWND game_wnd, HWND wnds[])
+{
+	// 975,85 473,63 502,22
+	// 1114,85 473,63 641,22
+	// 1254,85 473,63 781,22
+	// 1394,85 473,63 921,22
+	//game_wnd = (HWND)0x00020F68;
+	HWND petParentHwnd = FindPetParentWndAtTop(game_wnd);
+	EnumWndInfo info;
+	info.Left = 502;
+	info.Top = -1;
+	info.Width = -1;
+	info.Height = -1;
+	info.WidthFlag = 0;
+	info.HeightFlag = 0;
+	info.Text = (char*)"/";
+	info.TextFlag = -1;
+	info.GameWnd = game_wnd;
+	info.ReturnV = NULL;
+
+	int length = 0;
+	EnumChildWindows(petParentHwnd, EnumProcByWndInfo, (LPARAM)&info);
+	wnds[length++] = info.ReturnV;
+	printf("宠物血量窗口:%08X(%08X)\n", info.ReturnV, petParentHwnd);
+
+	info.Left = 641;
+	info.ReturnV = NULL;
+	EnumChildWindows(petParentHwnd, EnumProcByWndInfo, (LPARAM)&info);
+	wnds[length++] = info.ReturnV;
+	printf("宠物血量窗口:%08X\n", info.ReturnV);
+
+	info.Left = 781;
+	info.ReturnV = NULL;
+	EnumChildWindows(petParentHwnd, EnumProcByWndInfo, (LPARAM)&info);
+	wnds[length++] = info.ReturnV;
+	printf("宠物血量窗口:%08X\n", info.ReturnV);
+
+	info.Left = 921;
+	info.ReturnV = NULL;
+	EnumChildWindows(petParentHwnd, EnumProcByWndInfo, (LPARAM)&info);
+	wnds[length++] = info.ReturnV;
+	printf("宠物血量窗口:%08X\n", info.ReturnV);
+
+	return length;
+}
+
+// 获取顶部操作宠物父窗口
+HWND MCButton::FindPetParentWndAtTop(HWND game)
+{
+	EnumWndInfo info;
+	info.Left = -1;
+	info.Top = -1;
+	info.Width = 580;
+	info.Height = 85;
+	info.WidthFlag = 0;
+	info.HeightFlag = 0;
+	info.Text = NULL;
+	info.TextFlag = 0;
+	info.GameWnd = game;
+	info.ReturnV = NULL;
+	EnumChildWindows(game, EnumProcByWndInfo, (LPARAM)&info);
+	return info.ReturnV;
+}
+
+// 获取对话框窗口
+HWND MCButton::FindTalkWnd(HWND pic)
+{
+	HWND hWnd = NULL;
+	EnumChildWindows(pic, EnumProcTalkWnd, (LPARAM)&hWnd);
+	return hWnd;
+}
+
+// 获取窗口句柄
+HWND MCButton::FindButtonWnd(HWND hwnd_own, int button_id, const char* text)
+{
+	HWND hWnd, hWndParent;
+	if (FindButtonWnd(hwnd_own, button_id, hWnd, hWndParent, text))
+		return hWnd;
+
+	return NULL;
+}
+
 // 获得窗口句柄
 bool MCButton::FindButtonWnd(HWND hwnd_own, int button_id, HWND& hwnd, HWND& parent, const char* text)
 {
@@ -237,6 +434,97 @@ HWND MCButton::FindGameWnd(DWORD pid)
 		return (HWND)pid_t;
 
 	return NULL;
+}
+
+// 计算相对于游戏窗口位置
+bool MCButton::CalcRelGamePos(int& x, int& y, HWND game, int button_id, const char* text)
+{
+	x = 0;
+	y = 0;
+
+	HWND hWnd = FindButtonWnd(game, button_id, text);
+	if (!hWnd)
+		return false;
+
+	RECT r, r2;
+	::GetWindowRect(game, &r);
+	::GetWindowRect(hWnd, &r2);
+
+	x = r2.left - r.left;
+	y = r2.top - r.top;
+
+	return true;
+}
+
+// 枚举对话框窗口
+BOOL MCButton::EnumProcByWndInfo(HWND hWnd, LPARAM lParam)
+{
+	EnumWndInfo* p = (EnumWndInfo*)lParam;
+	RECT gameRect, rect;
+	::GetWindowRect(hWnd, &rect);
+	if (p->GameWnd != NULL) { // 游戏窗口位置
+		::GetWindowRect(p->GameWnd, &gameRect);
+	}
+
+	if (0 && p->Text) {
+		printf("%08X(%d,%d) %d,%d %d,%d\n", hWnd, rect.left, rect.top, p->Left,p->Top, rect.left - gameRect.left, rect.top - gameRect.top);
+	}
+
+	bool result = true;
+	if (p->Left != -1)
+		result = result && (rect.left-gameRect.left) == p->Left;
+	if (p->Top != -1)
+		result = result && (rect.top-gameRect.top) == p->Top;
+	if (p->Width != -1) {
+		int width = rect.right - rect.left;
+		if (p->WidthFlag == 0)
+			result = result && width == p->Width;
+		if (p->WidthFlag == -1)
+			result = result && width < p->Width;
+		if (p->WidthFlag == -2)
+			result = result && width > p->Width;
+	}
+	if (p->Height != -1) {
+		int height = rect.bottom - rect.top;
+		if (p->WidthFlag == 0)
+			result = result && height == p->Height;
+		if (p->WidthFlag == -1)
+			result = result && height < p->Height;
+		if (p->WidthFlag == -2)
+			result = result && height > p->Height;
+	}
+	if (p->Text) {
+		if (0 && result) {
+			printf("result:%08X\n----------------\n", hWnd);
+		}
+		char name[64];
+		GetWindowTextA(hWnd, name, sizeof(name));
+		if (p->TextFlag == 0)
+			result = result && strcmp(name, p->Text) == 0;
+		if (p->TextFlag == -1)
+			result = result && strstr(name, p->Text);
+	}
+	if (result) { // 已找到
+		p->ReturnV = hWnd;
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+// 枚举对话框窗口
+BOOL MCButton::EnumProcTalkWnd(HWND hWnd, LPARAM lParam)
+{
+	RECT rect;
+	::GetWindowRect(hWnd, &rect);
+	int width = rect.right - rect.left;
+	int height = rect.bottom - rect.top;
+	if (width == 480 && height > 200) {
+		*(HWND*)(lParam) = hWnd;
+		return FALSE;
+	}
+
+	return TRUE;
 }
 
 // 枚举窗口

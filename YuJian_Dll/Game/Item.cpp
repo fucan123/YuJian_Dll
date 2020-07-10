@@ -7,6 +7,8 @@
 #include "GameProc.h"
 #include <My/Common/C.h>
 
+#define ITEM_CLICK_PIC 0
+
 Item::Item(Game* p)
 {
 	m_pGame = p;
@@ -17,6 +19,9 @@ bool Item::OpenBag()
 {
 	DbgPrint("打开背包\n");
 	LOG2(L"打开背包", "c0");
+	if (m_pGame->m_pButton->CheckButton(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, BUTTON_ID_BAG_ITEM, "MPC物品栏"))
+		return true;
+
 	m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, BUTTON_ID_BAG);
 	for (int i = 0; i < 2000; i += 100) {
 		Sleep(100);
@@ -67,6 +72,7 @@ void Item::OpenStorage()
 		Sleep(800);
 		if (m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, BUTTON_ID_CHECKIN)) {
 			Sleep(800);
+			return;
 		}
 	}
 }
@@ -122,7 +128,7 @@ bool Item::UseYaoBao()
 	GetQuickYaoOrBaoNum(yaobao, yao);
 	if (yaobao > 0) {
 		m_pGame->m_pButton->Key('2'); // 2键
-		Sleep(300);
+		Sleep(200);
 	}
 	
 	return yaobao > 0;
@@ -164,7 +170,7 @@ bool Item::IsNeedUseYaoBao()
 {
 	int yao, yaobao;
 	GetQuickYaoOrBaoNum(yaobao, yao);
-	if (yao <= 1 && yaobao > 1)
+	if (yao <= 3 && yaobao > 1)
 		return true;
 
 	return false;
@@ -176,70 +182,69 @@ bool Item::BagIsOpen()
 	return m_pGame->m_pButton->CheckButton(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, BUTTON_ID_BAG_ITEM, "MPC物品栏");
 }
 
-// 物品操作按钮是否打开
-bool Item::ItemBtnIsOpen(int index)
+// 背包是否需要翻页
+bool Item::BagNeedPageDown()
 {
-	// 截取物品操作按钮 
-	if (1 || index == 0)      // 第一行
-		m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_pGame->m_pGameProc->m_hWndGame, 145, 85, 155, 95, 0, true);
-	else if (index == 1) // 第二行
-		m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_pGame->m_pGameProc->m_hWndGame, 145, 145, 155, 175, 0, true);
-	else                 // 第三行
-		m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_pGame->m_pGameProc->m_hWndGame, 145, 215, 155, 245, 0, true);
-
-	return m_pGame->m_pPrintScreen->ComparePixel("物品按钮", nullptr, 1) > 0;
+#if IS_READ_MEM == 0
+	int x_count, y_count;
+	m_pGame->m_pPrintScreen->GetPixelConCount(x_count, y_count, 0xFF151310);
+	return x_count < 20 || y_count < 10;
+#else
+	// 检查最后一个是否还有数据
+	DWORD data = 0;
+	m_pGame->m_pGameData->ReadDwordMemory(m_pGame->m_pGameProc->m_pAccount->Addr.Bag + 0x9C,
+		data, m_pGame->m_pGameProc->m_pAccount);
+	return data != 0;
+#endif
 }
 
-// 等待物品操作按钮出现
-bool Item::WaitForItemBtnOpen()
+// 获取背包物品
+void Item::ReadBagItem(ITEM_TYPE items[], int length)
 {
-	for (int i = 0; i < 1000; i += 100) {
-		if (ItemBtnIsOpen())
-			return true;
-
-		Sleep(100);
-	}
-	return false;
-	//375,260 820,460 第一个BOSS区域扫描是否有宝宝药
+	m_pGame->m_pGameData->ReadMemory((PVOID)m_pGame->m_pGameProc->m_pAccount->Addr.Bag,
+		items, length, m_pGame->m_pGameProc->m_pAccount);
 }
 
-// 拆分操作按钮是否出现
-bool Item::ChaiFeiBtnIsOpen()
+// 仓库是否需要翻页
+bool Item::StorageNeedPageDown()
 {
-	// 截取拆分框取消按钮
-	m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_pGame->m_pGameProc->m_hWndGame, 466, 505, 476, 515, 0, true);
-	return m_pGame->m_pPrintScreen->ComparePixel("拆分框", nullptr, 1) > 0;
+	// 检查最后一个是否还有数据
+	DWORD data = 0;
+	m_pGame->m_pGameData->ReadDwordMemory(m_pGame->m_pGameProc->m_pAccount->Addr.Storage + 0xEC,
+		data, m_pGame->m_pGameProc->m_pAccount);
+	return data != 0;
 }
 
-// 关闭拆分框
-void Item::CloseChaiFeiBox()
+// 获取仓库物品
+void Item::ReadStorageItem(ITEM_TYPE items[], int length)
 {
-	m_pGame->m_pGameProc->Click(466, 505, 566, 515);
+	m_pGame->m_pGameData->ReadMemory((PVOID)m_pGame->m_pGameProc->m_pAccount->Addr.Storage,
+		items, length, m_pGame->m_pGameProc->m_pAccount);
+}
+
+// 获取背包物品点击位置(index=物品所在位置)
+void Item::GetBagClickPos(int index, int& click_x, int& click_y)
+{
+	int x = 5, x2 = 20;  // 初始位置
+	int y = 10, y2 = 20; // 初始位置
+
+	x += (index % 10) * 35; // x每次增加35
+	x2 += (index % 10) * 35; // x每次增加35
+
+	y += (index / 10) * 34;  // y每次增加34
+	y2 += (index / 10) * 34; // y每次增加34
+
+	click_x = MyRand(x, x2);
+	click_y = MyRand(y, y2);
 }
 
 // 点击按钮捡东西
 bool Item::PickUpItemByBtn()
 {
-	LOG2(L"点击按钮拾取", "c0 b");
+	LOG2(L"点击按钮拾取", "c3");
 	//m_pGame->m_pEmulator->Tap(MyRand(26, 35), MyRand(656, 675));
-	m_pGame->m_pGameProc->Click(26, 656, 35, 675);
-	return WaitForPickUpItem();
-}
-
-// 仓库存钱按钮是否打开
-bool Item::SaveMoneyBtnIsOpen()
-{
-	// 截取存钱确定按钮
-	m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_pGame->m_pGameProc->m_hWndGame, 665, 465, 675, 475, 0, true);
-	return m_pGame->m_pPrintScreen->ComparePixel("仓库存钱确定按钮", nullptr, 1) > 0;
-}
-
-// 仓库解锁栏位按钮是否打开
-bool Item::StorageAddBtnIsOpen()
-{
-	// 仓库栏位解锁取消按钮
-	m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_pGame->m_pGameProc->m_hWndGame, 500, 380, 510, 390, 0, true);
-	return m_pGame->m_pPrintScreen->ComparePixel("仓库栏位解锁取消按钮", nullptr, 1) > 0;
+	m_pGame->m_pButton->Key('7');
+	return WaitForPickUpItem(6000, 1000);
 }
 
 // 捡物
@@ -254,7 +259,8 @@ int Item::PickUpItem(const char* name, int x, int y, int x2, int y2, int pickup_
 
 		DbgPrint("%d.捡东西:%s(%d,%d)\n", i, pick_name, pos_x, pos_y);
 		LOGVARN2(64, "c0", L"%d.捡东西:%hs(%d,%d)", i, pick_name, pos_x, pos_y);
-		m_pGame->m_pGameProc->Click(pos_x, pos_y);
+		m_pGame->m_pButton->ClickPic(m_pGame->m_pGameProc->m_pAccount->Wnd.Game,
+			m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, pos_x, pos_y);
 		WaitForPickUpItem();
 		count++;
 
@@ -265,15 +271,14 @@ int Item::PickUpItem(const char* name, int x, int y, int x2, int y2, int pickup_
 }
 
 // 等待捡起物品
-bool Item::WaitForPickUpItem(DWORD wait_ms)
+bool Item::WaitForPickUpItem(DWORD wait_ms, DWORD sleep_ms)
 {
 	DWORD pos_x = 0, pos_y = 0;
 	m_pGame->m_pGameData->ReadCoor(&pos_x, &pos_y, m_pGame->m_pGameProc->m_pAccount);
 
-	DWORD x = 0, y = 0;
-	m_pGame->m_pGameData->ReadCoor(&x, &y, m_pGame->m_pGameProc->m_pAccount);
-	for (DWORD i = 0; i <= wait_ms; i += 620) {
-		Sleep(620);
+	DWORD x = pos_x, y = pos_y;
+	for (DWORD i = 0; i <= wait_ms; i += 500) {
+		Sleep(sleep_ms);
 
 		DWORD now_x = 0, now_y = 0;
 		m_pGame->m_pGameData->ReadCoor(&now_x, &now_y, m_pGame->m_pGameProc->m_pAccount);
@@ -291,9 +296,9 @@ int Item::GetGroundItemPos(const char* name, int x, int y, int x2, int y2, int& 
 {
 	if (!x || !y || !x2 || !y2) {
 		x = 360;
-		y = 150;
-		x2 = 880;
-		y2 = 566;
+		y = 90;
+		x2 = 1098;
+		y2 = 730;
 	}
 
 	wchar_t log[128];
@@ -334,7 +339,7 @@ int Item::GetGroundItemPos(const char* name, int x, int y, int x2, int y2, int& 
 		DWORD color2 = 0x00000000, diff2 = 0x00000000;
 		int tmp_x = 0, tmp_y = 0, tmp_x2 = 0, tmp_y2 = 0;
 		if (strcmp("速效圣兽灵药", pick_name) == 0) {
-			color = 0xFF72AA23;
+			color = 0xFFBBD533; // 有2个
 			diff = 0x000B0B0B;
 		}
 		else if (strcmp("6星O礼包", pick_name) == 0) {
@@ -342,36 +347,36 @@ int Item::GetGroundItemPos(const char* name, int x, int y, int x2, int y2, int& 
 			diff = 0x00080808;
 		}
 		else if (strcmp("12星XO礼包", pick_name) == 0) {
-			//color = 0xFF5AB6DF;
-			diff = 0x00080808;
+			color = 0xFFE3E2F1; // 有10个
+			diff = 0x00010101;
 		}
 		else if (strcmp("25星XO礼包", pick_name) == 0) {
 			color = 0xFF667EBE;
 			diff = 0x00010101;
 		}
 		else if (strcmp("30星神兽碎片+1", pick_name) == 0) {
-			color = 0xFFB6936B;
-			diff = 0x00010101;
+			color = 0xFFF6BB8D; // 有4个
+			diff = 0x00020202;
 		}
 		else if (strcmp("30星神兽碎片+2", pick_name) == 0) {
-			color = 0xFF6278B2;
-			diff = 0x00030303;
+			color = 0xFF627BA3; // 有3个
+			diff = 0x00020202;
 		}
 		else if (strcmp("30星神兽碎片+3", pick_name) == 0) {
-			color = 0xFFB885CA;
+			color = 0xFFBE76D9; // 有2个
 			diff = 0x00080808;
 		}
 		else if (strcmp("幻魔晶石", pick_name) == 0) {
-			color = 0xFFE352ED;
-			diff = 0x00020202;
+			color = 0xFFC52F96; // 有8个
+			diff = 0x00080808;
 		}
 		else if (strcmp("魔魂晶石", pick_name) == 0) {
-			color = 0xFFF5E880;
-			diff = 0x00020202;
+			color = 0xFF925B20; // 有5个
+			diff = 0x00010101;
 		}
 		else if (strcmp("灵魂晶石", pick_name) == 0) {
-			color = 0xFFF7C68E;
-			diff = 0x00030303;
+			color = 0xFF91090B; // 有4个
+			diff = 0x00020202;
 		}
 		else if (strcmp("速效治疗包", pick_name) == 0) {
 			if (!strstr(name, ".")) {
@@ -413,39 +418,22 @@ int Item::GetGroundItemPos(const char* name, int x, int y, int x2, int y2, int& 
 }
 
 // 丢弃药包
-int Item::DropItem(ComImgIndex index, int live_count, DWORD* ms)
+int Item::DropItem(DWORD* ms)
 {
 	DWORD _tm = GetTickCount();
 
-	if (!OpenBag())
-		Sleep(500);
-
-	Sleep(300);
+	OpenBag();
+	Sleep(1000);
 
 	bool is_use_item = false;
 	int count = 0; // 数量
-	for (int i = 0; i <= 3; i++) {
+#if IS_READ_MEM == 0
+	for (int i = 0; i < 2; i++) {
 		if (m_pGame->m_pGameProc->m_bPause)
 			break;
 
-		if (!BagIsOpen()) {
-			LOGVARN2(64, "red", L"背包没有打开, Wait Bag Open!");
-			Sleep(100);
-			if (!BagIsOpen()) {
-				LOGVARN2(32, "red", L"背包没有打开");
-				if (i > 1) {
-					break;
-				}
-				else {
-					Sleep(100);
-					continue;
-				}
-			}
-		}
-
-		if (SlideBag(i)) { // 滑动背包
-			Sleep(200);
-		}
+		if (SlideBag(i)) // 切换背包页面
+			Sleep(1000);
 
 		ConfItemInfo* items = m_pGame->m_pGameConf->m_stDrop.Drops;
 		int length = m_pGame->m_pGameConf->m_stDrop.Length;
@@ -461,30 +449,19 @@ int Item::DropItem(ComImgIndex index, int live_count, DWORD* ms)
 				continue;
 			if (num < 3 && strcmp(items[idx].Name, "钥匙") == 0) // 钥匙只有一把不能丢
 				continue;
-			if (num <= 6 && strcmp(items[idx].Name, "速效治疗包") == 0)
+			if (num <= 8 && strcmp(items[idx].Name, "速效治疗包") == 0)
 				continue;
 			//m_pGame->m_pPrintScreen->SaveBitmapToFile(bitmap, L"C:\\Users\\fucan\\Desktop\\MNQ-9Star\\jt.bmp");
 			//DbgPrint("%d.丢.%s.背包物品数量:%d\n", i + 1, drops[idx], num);
 
 			int drop_num = 0;
-
-			if (count >= live_count) { // 需要全部丢
-				drop_num = num;
-			}
-			else {
-				drop_num = count + num - live_count;
-			}
 			drop_num = strcmp(items[idx].Name, "钥匙") != 0 ? num : 1; // 钥匙只丢最前面那一把
 			if (strcmp(items[idx].Name, "速效治疗包") == 0)
-				drop_num = num - 6;
-
-			int btn_index = 1;
-			if (strcmp("钥匙", items[idx].Name) == 0 || strcmp("清凉的圣水", items[idx].Name) == 0) // 只有一个操作按钮
-				btn_index = 0;
+				drop_num = num - 8;
 
 			for (int j = 0; j < drop_num; j++) {
 				if (j == 0) {
-					DropItem(items[idx].Name, cp[0].x, cp[0].y, btn_index);
+					DropItem(items[idx].Name, cp[0].x, cp[0].y, 0);
 				}
 				else {
 					ComPoint item[1];
@@ -492,21 +469,16 @@ int Item::DropItem(ComImgIndex index, int live_count, DWORD* ms)
 					if (!m_pGame->m_pPrintScreen->ComparePixel(items[idx].Name, item, sizeof(item) / sizeof(ComPoint)))
 						break;
 
-						DropItem(items[idx].Name, item[0].x, item[0].y, btn_index);
+					DropItem(items[idx].Name, item[0].x, item[0].y, 0);
 				}
-				Sleep(600);
-
-				if (ChaiFeiBtnIsOpen()) {
-					CloseChaiFeiBox();
-					Sleep(300);
-				}
+				Sleep(100);
 			}
 			count += num;
 
 			m_pGame->m_pGameProc->CloseTipBox();
-		}
+}
 
-		if (1 || !is_use_item) {
+		if (!is_use_item) {
 			items = m_pGame->m_pGameConf->m_stUse.Uses;
 			length = m_pGame->m_pGameConf->m_stUse.Length;
 			for (idx = 0; idx < length; idx++) {
@@ -532,33 +504,68 @@ int Item::DropItem(ComImgIndex index, int live_count, DWORD* ms)
 					Sleep(600);
 
 					m_pGame->m_pGameProc->CloseTipBox();
-					if (ChaiFeiBtnIsOpen()) {
-						CloseChaiFeiBox();
-						Sleep(300);
-					}
 				}
 				count += num;
 
 				m_pGame->m_pGameProc->CloseTipBox();
 			}
 		}
+
+		if (!BagNeedPageDown())
+			break;
+	}
+#else
+	for (int i = 0; i < 5; i++) {
+		if (m_pGame->m_pGameProc->m_bPause)
+			break;
+
+		if (SlideBag(i)) // 滑动背包
+			Sleep(1000); 
 		
-		if (i > 1) {
-			if (m_pGame->m_pPrintScreen->ComparePixel("没有物品", nullptr, 1))
+		ITEM_TYPE bag_items[40];
+		ConfItemInfo* items = m_pGame->m_pGameConf->m_stDrop.Drops;
+		int length = m_pGame->m_pGameConf->m_stDrop.Length;
+		int idx = 0, drop_i = 0;
+		for (idx = 0; idx < length; idx++) {
+			if (drop_i >= 30)
 				break;
-			if (m_pGame->m_pPrintScreen->ComparePixel("锁定格子", nullptr, 1))
-				break;
+
+			ReadBagItem(bag_items, sizeof(bag_items));
+			for (int n = 0; n < sizeof(bag_items) / sizeof(ITEM_TYPE); n++) {
+				if (bag_items[n] && bag_items[n] == items[idx].Type) {
+					int click_x, click_y;
+					GetBagClickPos(n, click_x, click_y);
+					DropItem(items[idx].Name, click_x, click_y);
+
+					idx = 0;
+					drop_i++;
+					break;
+				}
+			}
 		}
-	}
 
-	if (ChaiFeiBtnIsOpen()) {
-		CloseChaiFeiBox();
-		Sleep(300);
-	}
+		items = m_pGame->m_pGameConf->m_stUse.Uses;
+		length = m_pGame->m_pGameConf->m_stUse.Length;
+		for (idx = 0; idx < length; idx++) {
+			ReadBagItem(bag_items, sizeof(bag_items));
+			for (int n = 0; n < sizeof(bag_items) / sizeof(ITEM_TYPE); n++) {
+				if (bag_items[n] && bag_items[n] == items[idx].Type) {
+					int click_x, click_y;
+					GetBagClickPos(n, click_x, click_y);
+					UseItem(items[idx].Name, click_x, click_y);
 
+					break;
+				}
+			}
+		}
+
+		if (!BagNeedPageDown())
+			break;
+	}
+#endif
 	Sleep(200);
 	CloseBag();
-	Sleep(100);
+	Sleep(300);
 
 	_tm = GetTickCount() - _tm;
 	if (ms) {
@@ -575,26 +582,19 @@ void Item::UseItem(const char* name, int x, int y)
 {
 	DbgPrint("使用物品:%s(%d,%d)\n", name, x, y);
 	LOGVARN2(64, "c0", L"使用物品:%hs(%d,%d)", name, x, y);
-	m_pGame->m_pGameProc->Click(x, y);
-	if (WaitForItemBtnOpen()) {
-		Sleep(150);
-		// 点击物品出来操作按钮旁边的图标
-		m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_pGame->m_pGameProc->m_hWndGame, 320, 82, 375, 145, 0, true);
-		if (m_pGame->m_pPrintScreen->ComparePixel("30星神兽碎片+3", nullptr, 1) > 0) // 不要去使用30星神兽碎片+3
-			return;
+#if IS_READ_MEM == 0
+#if ITEM_CLICK_PIC
+	m_pGame->m_pButton->ClickPic(m_pGame->m_pGameProc->m_pAccount->Wnd.Game, m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, x, y, 50, false);
+#else
+	m_pGame->m_pButton->ClickRel(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+		BUTTON_ID_BAG_ITEM, "MPC物品栏", x, y, 0xff, false);
+#endif
+#else
+	m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+		BUTTON_ID_BAG_ITEM, "MPC物品栏", x, y, 0xff, false);
+#endif
 
-		if (!ItemBtnIsOpen()) {
-			LOGVARN2(64, "red", L"物品操作按钮未打开", name, x, y);
-			Sleep(300);
-		}
-
-		GetItemBtnPos(x, y, 0);
-		m_pGame->m_pGameProc->Click(x, y); // 点击使用按钮
-		LOGVARN2(64, "c0", L"使用物品完成", name, x, y);
-	}
-	else {
-		LOGVARN2(64, "c0", L"使用物品:%hs(%d,%d)失败", name, x, y);
-	}
+	Sleep(500);
 }
 
 // 丢弃物品
@@ -602,92 +602,42 @@ void Item::DropItem(const char* name, int x, int y, int index)
 {
 	DbgPrint("丢物:%s(%d,%d)\n", name, x, y);
 	LOGVARN2(64, "c0", L"丢物:%hs(%d,%d)", name, x, y);
-	m_pGame->m_pGameProc->Click(x, y);
-	if (WaitForItemBtnOpen()) {
-		Sleep(100);
-		if (strcmp("紫色祝福碎片", name) == 0 && ItemBtnIsOpen(2)) // 有第三个按钮, 那么是30星神兽碎片+3
-			return;
 
-		if (!ItemBtnIsOpen()) {
-			LOGVARN2(64, "red", L"物品操作按钮未打开", name, x, y);
-			Sleep(300);
-		}
-
-#if 1
-		if (strcmp("钥匙", name) != 0) {
-			// 点击物品出来操作按钮旁边的图标
-			for (int n = 1; n <= 2; n++) { // 一共检查两次
-				m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_pGame->m_pGameProc->m_hWndGame, 320, 82, 375, 145, 0, true);
-				if (m_pGame->m_pPrintScreen->ComparePixel("钥匙", nullptr, 1) > 0) // 丢到了钥匙
-					return;
-
-				Sleep(n < 2 ? 100 : 50);
-			}
-		}
-		else {
-			// 点击物品出来操作按钮旁边的图标
-			for (int n = 1; n <= 2; n++) { // 一共检查两次
-				// 点击物品出来物品名称(取钥匙字那里)
-				m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_pGame->m_pGameProc->m_hWndGame, 500, 76, 510, 86, 0, true);
-				if (m_pGame->m_pPrintScreen->ComparePixel("卡利亚堡钥匙(丢弃名称)", nullptr, 1) > 0) // 丢到了钥匙
-					return;
-
-				Sleep(n < 2 ? 100 : 50);
-			}
-		}
-
-		// 点击物品出来操作按钮旁边的图标
-		m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_pGame->m_pGameProc->m_hWndGame, 320, 82, 375, 145, 0, true);
-		if (m_pGame->m_pPrintScreen->ComparePixel("勇气符石", nullptr, 1) > 0) // 勇气浮石
-			return;
-		
+#if IS_READ_MEM == 0
+#if ITEM_CLICK_PIC
+	m_pGame->m_pButton->ClickPic(m_pGame->m_pGameProc->m_pAccount->Wnd.Game, m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, x, y);
 #else
-		// 点击物品出来物品名称(取钥匙字那里)
-		m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_pGame->m_pGameProc->m_hWndGame, 500, 76, 510, 86, 0, true);
-		if (strcmp("钥匙", name) != 0) {
-			if (m_pGame->m_pPrintScreen->ComparePixel("卡利亚堡钥匙(丢弃名称)", nullptr, 1) > 0) // 丢到了钥匙
-				return;
-		}
-
-		// 点击物品出来物品名称
-		m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_pGame->m_pGameProc->m_hWndGame, 415, 76, 425, 86, 0, true);
-		if (m_pGame->m_pPrintScreen->ComparePixel("勇气符石(丢弃名称)", nullptr, 1) > 0) // 勇气浮石
-			return;
+	m_pGame->m_pButton->ClickRel(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+		BUTTON_ID_BAG_ITEM, "MPC物品栏", x, y);
 #endif
+#else
+	m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+		BUTTON_ID_BAG_ITEM, "MPC物品栏", x, y);
+#endif
+	Sleep(100);
 
-		GetItemBtnPos(x, y, index > -1 ? index : 1);
-		m_pGame->m_pGameProc->Click(x, y); // 点击丢弃按钮
-	}
-	else {
-		LOGVARN2(64, "c0", L"丢物:%hs(%d,%d)失败", name, x, y);
-	}
+	m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+		MyRand(700, 999), MyRand(500, 735));
+	Sleep(360);
+
+	m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+		BUTTON_ID_TIPSURE, "确定");
+
+	Sleep(500);
 }
 
 // 售卖物品
 int Item::SellItem(ConfItemInfo* items, DWORD length)
 {
-	for (int i = 0; i <= 3; i++) {
+	Sleep(1000);
+
+#if IS_READ_MEM == 0
+	for (int i = 0; i < 2; i++) {
 		if (m_pGame->m_pGameProc->m_bPause)
 			break;
 
-		if (!BagIsOpen()) {
-			LOGVARN2(64, "red", L"背包没有打开, Wait Bag Open!");
-			Sleep(100);
-			if (!BagIsOpen()) {
-				LOGVARN2(32, "red", L"背包没有打开");
-				if (i > 1) {
-					break;
-				}
-				else {
-					Sleep(100);
-					continue;
-				}
-			}
-		}
-
-		if (SlideBag(i)) { // 滑动背包
-			Sleep(100);
-		}
+		if (SlideBag(i)) // 切换背包页面
+			Sleep(1000);
 
 		for (DWORD iti = 0; iti < length; iti++) {
 			for (int sell_i = 0; sell_i < 10; sell_i++) {
@@ -700,9 +650,7 @@ int Item::SellItem(ConfItemInfo* items, DWORD length)
 
 				for (int j = 0; j < num; j++) {
 					if (j == 0) {
-						SellItem(cp[0].x, cp[0].y);
-						DbgPrint("%d.售卖:%hs(%d,%d)\n", j + 1, items[iti].Name, cp[j].x, cp[j].y);
-						LOGVARN2(64, "c0", L"%d.售卖:%hs(%d,%d)", j + 1, items[iti].Name, cp[j].x, cp[j].y);
+						SellItem(items[iti].Name, cp[0].x, cp[0].y);
 					}
 					else {
 						ComPoint item[1];
@@ -710,36 +658,71 @@ int Item::SellItem(ConfItemInfo* items, DWORD length)
 						if (!m_pGame->m_pPrintScreen->ComparePixel(items[iti].Name, item, sizeof(item) / sizeof(ComPoint)))
 							break;
 
-						SellItem(item[0].x, item[0].y);
-						DbgPrint("%d.售卖:%hs(%d,%d)\n", j + 1, items[iti].Name, item[0].x, item[0].y);
-						LOGVARN2(64, "c0", L"%d.售卖:%hs(%d,%d)", j + 1, items[iti].Name, item[0].x, item[0].y);
+						SellItem(items[iti].Name, item[0].x, item[0].y);
 					}
-					Sleep(600);
+					Sleep(100);
 				}
 			}
 		}
 
-		if (i > 1) {
-			if (m_pGame->m_pPrintScreen->ComparePixel("没有物品", nullptr, 1))
-				break;
-			if (m_pGame->m_pPrintScreen->ComparePixel("锁定格子", nullptr, 1))
-				break;
-		}
+		if (!BagNeedPageDown())
+			break;
 	}
+#else
+	for (int i = 0; i < 5; i++) {
+		if (m_pGame->m_pGameProc->m_bPause)
+			break;
+
+		if (SlideBag(i)) // 滑动背包
+			Sleep(1000);
+
+		ITEM_TYPE bag_items[40];
+		ConfItemInfo* items = m_pGame->m_pGameConf->m_stSell.Sells;
+		int length = m_pGame->m_pGameConf->m_stSell.Length;
+		int idx = 0;
+		for (idx = 0; idx < length; idx++) {
+			ReadBagItem(bag_items, sizeof(bag_items));
+			for (int n = 0; n < sizeof(bag_items) / sizeof(ITEM_TYPE); n++) {
+				if (bag_items[n] && bag_items[n] == items[idx].Type) {
+					int click_x, click_y;
+					GetBagClickPos(n, click_x, click_y);
+					SellItem(items[idx].Name, click_x, click_y);
+
+					idx = 0;
+					break;
+				}
+			}
+		}
+
+		if (!BagNeedPageDown())
+			break;
+	}
+#endif
 
 	return 0;
 }
 
 // 售卖物品
-void Item::SellItem(int x, int y)
+void Item::SellItem(const char* name, int x, int y)
 {
-	//DbgPrint("卖物品:%d,%d\n", x, y);
-	m_pGame->m_pGameProc->Click(x, y);
-	if (WaitForItemBtnOpen()) {
-		Sleep(100);
-		GetItemBtnPos(x, y, 0);
-		m_pGame->m_pGameProc->Click(x, y); // 点击丢弃按钮
-	}
+	DbgPrint("卖物品:%s %d,%d\n", name, x, y);
+	LOGVARN2(64, "c0", L"卖物品:%hs(%d,%d)", name, x, y);
+
+#if IS_READ_MEM == 0
+#if ITEM_CLICK_PIC
+	m_pGame->m_pButton->ClickPic(m_pGame->m_pGameProc->m_pAccount->Wnd.Game, m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, x, y, 50, false);
+#else
+	m_pGame->m_pButton->ClickRel(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+		BUTTON_ID_BAG_ITEM, "MPC物品栏", x, y, 0xff, false);
+#endif
+#else
+	m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+		BUTTON_ID_BAG_ITEM, "MPC物品栏", x, y, 0xff, false);
+#endif
+	Sleep(360);
+
+	m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, BUTTON_ID_TIPSURE, "确定");
+	Sleep(500);
 }
 
 // 获取物品操作按钮位置
@@ -758,7 +741,7 @@ void Item::GetItemBtnPos(int& x, int& y, int index)
 }
 
 // 存入仓库
-void Item::CheckIn(ConfItemInfo* items, DWORD length)
+void Item::CheckIn()
 {
 	DbgPrint("存物\n");
 	LOG2(L"存物", "c0");
@@ -767,42 +750,18 @@ void Item::CheckIn(ConfItemInfo* items, DWORD length)
 	OpenStorage();
 	Sleep(1000);
 
-	int pet_yao_1 = 0, pet_yao_2 = 1;
-	for (int i = 0; i <= 3; i++) {
+#if IS_READ_MEM == 0
+	for (int i = 0; i < 2; i++) {
+		m_pGame->m_pGameProc->CloseTipBox();
+
 		if (m_pGame->m_pGameProc->m_bPause)
 			break;
-
-		if (!BagIsOpen()) {
-			LOGVARN2(64, "red", L"背包没有打开, Wait Bag Open!");
-			Sleep(100);
-			if (!BagIsOpen()) {
-				LOGVARN2(32, "red", L"背包没有打开");
-				if (i > 1) {
-					break;
-				}
-				else {
-					Sleep(100);
-					continue;
-				}
-			}
-		}
-
-		m_pGame->m_pGameProc->CloseTipBox();
-		if (SlideBag(i)) { // 滑动背包
-			Sleep(300);
-		}
-
-		int pet_yao = 0;
-		if (!pet_yao_1) {
-			PrintBagImg(true); // 截取背包图片
-			pet_yao_1 = m_pGame->m_pPrintScreen->ComparePixel("速效圣兽灵药", nullptr, 1) > 0;
-			pet_yao = pet_yao_1;
-		}
-		else {
-			pet_yao = m_pGame->m_pPrintScreen->ComparePixel("速效圣兽灵药", nullptr, 1) > 0;
-		}
+		if (SlideBag(i)) // 切换背包页数
+			Sleep(1000);
 
 		bool is_save = false; // 是否存了东西
+		ConfItemInfo* items = m_pGame->m_pGameConf->m_stCheckIn.CheckIns;
+		int length = m_pGame->m_pGameConf->m_stCheckIn.Length;
 		for (DWORD iti = 0; iti < length; iti++) {
 			ComPoint cp[32];
 			PrintBagImg(true); // 截取背包图片
@@ -811,8 +770,14 @@ void Item::CheckIn(ConfItemInfo* items, DWORD length)
 			if (num > 0) {
 				for (int j = 0; j < num; j++) {
 					if (j == 0) {
-						m_pGame->m_pGameProc->Click(cp[0].x, cp[0].y);
-						DbgPrint("%d.存物.%s:(%d,%d)\n", j + 1, items[iti].Name, cp[j].x, cp[j].y);
+#if ITEM_CLICK_PIC
+						m_pGame->m_pButton->ClickPic(m_pGame->m_pGameProc->m_pAccount->Wnd.Game, m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, 
+							cp[j].x, cp[j].y, 50, false);
+#else
+						m_pGame->m_pButton->ClickRel(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+							BUTTON_ID_BAG_ITEM, "MPC物品栏", cp[j].x, cp[j].y, 0xff, false);
+#endif
+						
 						LOGVARN2(64, "c0", L"%d.存物:%hs(%d,%d)", j + 1, items[iti].Name, cp[j].x, cp[j].y);
 					}
 					else {
@@ -821,37 +786,69 @@ void Item::CheckIn(ConfItemInfo* items, DWORD length)
 						if (!m_pGame->m_pPrintScreen->ComparePixel(items[iti].Name, item, sizeof(item) / sizeof(ComPoint)))
 							break;
 
-						m_pGame->m_pGameProc->Click(item[0].x, item[0].y);
+#if ITEM_CLICK_PIC
+						m_pGame->m_pButton->ClickPic(m_pGame->m_pGameProc->m_pAccount->Wnd.Game, m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+							item[0].x, item[0].y, 50, false);
+#else
+						m_pGame->m_pButton->ClickRel(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+							BUTTON_ID_BAG_ITEM, "MPC物品栏", item[0].x, item[0].y, 0xff, false);
+#endif
 						DbgPrint("%d.存物.%s:(%d,%d)\n", j + 1, items[iti].Name, item[0].x, item[0].y);
 						LOGVARN2(64, "c0", L"%d.存物:%hs(%d,%d)", j + 1, items[iti].Name, item[0].x, item[0].y);
 					}
-					Sleep(800);
+					Sleep(600);
 				}
 				is_save = true;
 			}
 		}
 
-		if (is_save && pet_yao_1 && pet_yao) {
-			PrintBagImg(true); // 截取背包图片
-			pet_yao_2 = m_pGame->m_pPrintScreen->ComparePixel("速效圣兽灵药", nullptr, 1);
+		if (!BagNeedPageDown())
+			break;
+	}
+#else
+
+	int pet_yao_1 = 0, pet_yao_2 = 1;
+	for (int i = 0; i <= 5; i++) {
+		if (m_pGame->m_pGameProc->m_bPause)
+			break;
+
+		if (SlideBag(i)) // 滑动背包
+			Sleep(1000);
+
+		ITEM_TYPE bag_items[40];
+		ConfItemInfo* items = m_pGame->m_pGameConf->m_stCheckIn.CheckIns;
+		int length = m_pGame->m_pGameConf->m_stCheckIn.Length;
+		int idx = 0, save_i = 0;
+		for (idx = 0; idx < length; idx++) {
+			if (save_i >= 30)
+				break;
+
+			ReadBagItem(bag_items, sizeof(bag_items));
+			for (int n = 0; n < sizeof(bag_items) / sizeof(ITEM_TYPE); n++) {
+				if (bag_items[n] && bag_items[n] == items[idx].Type) {
+					int click_x, click_y;
+					GetBagClickPos(n, click_x, click_y);
+
+					LOGVARN2(64, "c0", L"存物:%hs %d,%d(%d)", items[idx].Name, click_x, click_y, n);
+					m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+						BUTTON_ID_BAG_ITEM, "MPC物品栏", click_x, click_y, 0xff, false);
+					Sleep(600);
+
+					idx = 0;
+					save_i++;
+					break;
+				}
+			}
 		}
 
-		if (i > 2) {
-			if (m_pGame->m_pPrintScreen->ComparePixel("没有物品", nullptr, 1))
-				break;
-			if (m_pGame->m_pPrintScreen->ComparePixel("锁定格子", nullptr, 1))
-				break;
-		}
+		if (!BagNeedPageDown())
+			break;
 	}
-	if (pet_yao_1 && !pet_yao_2) {
-		DbgPrint("\n======速效圣兽灵药不见了, 需要取出来======\n\n");
-		LOG2(L"\n======速效圣兽灵药不见了, 需要取出来======", "blue_r");
-		CheckOutOne("速效圣兽灵药", false, false);
-	}
+#endif
 
-	Sleep(150);
+	Sleep(200);
 	CloseStorage();
-	Sleep(100);
+	Sleep(300);
 
 	_tm = GetTickCount() - _tm;
 	DbgPrint("存物用时:%.2f秒, %d毫秒\n", (float)_tm / 1000.0f, _tm);
@@ -861,6 +858,7 @@ void Item::CheckIn(ConfItemInfo* items, DWORD length)
 // 取出仓库
 int Item::CheckOut(ConfItemInfo* items, DWORD length)
 {
+	int count = 0;
 	DbgPrint("取物\n");
 	LOG2(L"取物", "c0");
 	DWORD _tm = GetTickCount();
@@ -868,11 +866,16 @@ int Item::CheckOut(ConfItemInfo* items, DWORD length)
 	OpenStorage();
 	Sleep(1000);
 
-	int count = 0;
 
-	for (int i = 0; i <= 5; i++) {
-		if (SlideStorge(i)) { // 滑动仓库
-			Sleep(300);
+	HWND game = m_pGame->m_pGameProc->m_pAccount->Wnd.Game;
+	HWND pic = m_pGame->m_pGameProc->m_pAccount->Wnd.Pic;
+
+#if IS_READ_MEM == 0
+	for (int i = 0; i < 2; i++) {
+		if (m_pGame->m_pGameProc->m_bPause)
+			break;
+		if (SlideStorge(i)) { // 滑动仓库啊
+			Sleep(1000);
 		}
 
 		for (DWORD iti = 0; iti < length; iti++) {
@@ -884,9 +887,14 @@ int Item::CheckOut(ConfItemInfo* items, DWORD length)
 			if (num > 0) {
 				for (int j = 0; j < num; j++) {
 					if (j == 0) {
-						m_pGame->m_pGameProc->Click(cp[0].x, cp[0].y);
-						DbgPrint("%d.取物.(%s:%d,%d)\n", j + 1, items[iti].Name, cp[j].x, cp[j].y);
-						LOGVARN2(64, "c0", L"%d.取物:%hs(%d,%d)", j + 1, items[iti].Name, cp[j].x, cp[j].y);
+						LOGVARN2(64, "c0", L"取物:%hs %d,%d", items[iti].Name, cp[0].x, cp[0].y);
+#if ITEM_CLICK_PIC
+						m_pGame->m_pButton->ClickPic(m_pGame->m_pGameProc->m_pAccount->Wnd.Game, m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+							cp[0].x, cp[0].y, 50, false);
+#else
+						m_pGame->m_pButton->ClickRel(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+							BUTTON_ID_CKIN_ITEM, "存储物品栏", cp[0].x, cp[0].y, 0xff, false);
+#endif
 					}
 					else {
 						ComPoint item[1];
@@ -894,62 +902,79 @@ int Item::CheckOut(ConfItemInfo* items, DWORD length)
 						if (!m_pGame->m_pPrintScreen->ComparePixel(items[iti].Name, item, sizeof(item) / sizeof(ComPoint)))
 							break;
 
-						m_pGame->m_pGameProc->Click(item[0].x, item[0].y);
-						DbgPrint("%d.取物.%s:(%d,%d)\n", j + 1, items[iti].Name, item[0].x, item[0].y);
-						LOGVARN2(64, "c0", L"%d.取物:%hs(%d,%d)", j + 1, items[iti].Name, item[0].x, item[0].y);
+						LOGVARN2(64, "c0", L"取物:%hs %d,%d", items[iti].Name, item[0].x, item[0].y);
+#if ITEM_CLICK_PIC
+						m_pGame->m_pButton->ClickPic(m_pGame->m_pGameProc->m_pAccount->Wnd.Game, m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+							item[0].x, item[0].y, 50, false);
+#else
+						m_pGame->m_pButton->ClickRel(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+							BUTTON_ID_CKIN_ITEM, "存储物品栏", item[0].x, item[0].y, 0xff, false);
+#endif
 					}
-					Sleep(800);
+					Sleep(600);
+				}
+			}
+		}
+		if (m_pGame->m_pPrintScreen->ComparePixel("没有物品", nullptr, 1))
+			break;
+	}
+#else
+	for (int i = 0; i <= 5; i++) {
+		if (m_pGame->m_pGameProc->m_bPause)
+			break;
+
+		if (SlideStorge(i)) // 滑动仓库页码
+			Sleep(1000);
+
+		ITEM_TYPE storage_items[60];
+		int idx = 0, out_i = 0;
+		for (idx = 0; idx < length; idx++) {
+			if (out_i >= 30)
+				break;
+
+			ReadStorageItem(storage_items, sizeof(storage_items));
+			for (int n = 0; n < sizeof(storage_items) / sizeof(ITEM_TYPE); n++) {
+				if (storage_items[n] && storage_items[n] == items[idx].Type) {
+					int click_x, click_y;
+					GetBagClickPos(n, click_x, click_y);
+
+					LOGVARN2(64, "c0", L"取物:%hs %d,%d(%d)", items[idx].Name, click_x, click_y, n);
+					m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+						BUTTON_ID_CKIN_ITEM, "存储物品栏", click_x, click_y, 0xff, false);
+					Sleep(600);
+
+					count++;
+					idx = 0;
+					out_i++;
+					break;
 				}
 			}
 		}
 
-		if (0) {
-			if (m_pGame->m_pPrintScreen->ComparePixel("没有物品", nullptr, 1))
-				break;
-			if (m_pGame->m_pPrintScreen->ComparePixel("锁定格子", nullptr, 1))
-				break;
-		}
+		if (!StorageNeedPageDown())
+			break;
 	}
+#endif
 
-	// 仓库格子解锁是否打开
-	while (StorageAddBtnIsOpen()) {
-		m_pGame->m_pGameProc->Click(510, 380, 602, 400); // 取消
-		Sleep(500);
-	}
+	Sleep(200);
 
 #if 1
 	LOG2(L"存钱.", "orange");
-	m_pGame->m_pGameProc->Click(150, 666, 235, 682); // 仓库存钱按钮
-	for (int n = 0; n < 2000; n += 100) {
-		Sleep(100);
-		if (SaveMoneyBtnIsOpen()) {
-			Sleep(500);
-			m_pGame->m_pGameProc->Click(770, 382, 776, 385); // 滑块最右边
-			Sleep(500);
-			m_pGame->m_pGameProc->Click(750, 300, 760, 320); // +号, 以免0存不起
-			Sleep(500);
-			m_pGame->m_pGameProc->Click(680, 468, 750, 490); // 确定
-			Sleep(500);
-			break;
-		}
+	m_pGame->m_pButton->Click(game, BUTTON_ID_SAVE_MNY, "取");
+	Sleep(800);
+	m_pGame->m_pButton->ClickPic(game, pic, MyRand(1216, 1286), MyRand(300, 303), 300);
+	char money[] = {'5', '0', '0', '0', '0', '0', '0', '0', 0};
+	for (int i = 0; money[i]; i++) {
+		m_pGame->m_pButton->Key(money[i]);
+		Sleep(260);
 	}
-
-	while (SaveMoneyBtnIsOpen()) { // 检查是否还有按钮
-		m_pGame->m_pGameProc->Click(460, 468, 550, 490); // 取消
-		Sleep(300);
-	}
+	m_pGame->m_pButton->Click(game, BUTTON_ID_CUNQIAN, "存");
+	Sleep(300);
 	LOG2(L"存钱完成.", "orange");
 #endif
 
 	CloseStorage();
-
-	for (int j = 0; j < 5; j++) {
-		Sleep(500);
-		if (!BagIsOpen())
-			break;
-
-		CloseStorage();
-	}
+	Sleep(300);
 
 	_tm = GetTickCount() - _tm;
 	DbgPrint("取物用时:%.2f秒, %d毫秒\n", (float)_tm / 1000.0f, _tm);
@@ -961,86 +986,154 @@ int Item::CheckOut(ConfItemInfo* items, DWORD length)
 // 取出一个仓库物品
 int Item::CheckOutOne(const char * name, bool open, bool close)
 {
+	DbgPrint("取物\n");
+	LOG2(L"取物", "c0");
+
+	ITEM_TYPE type = (ITEM_TYPE)m_pGame->m_pGameConf->TransFormItemType(name);
+	if (type == 未知物品) {
+		DbgPrint("未知物品.\n");
+		LOG2(L"未知物品.", "c0");
+		return 0;
+	}
+		
 	if (open) {
 		OpenStorage();
 		Sleep(1000);
 	}
-	
+
 	int count = 0;
-	for (int i = 0; i <= 5; i++) {
+
+#if IS_READ_MEM == 0
+	for (int i = 0; i < 2; i++) {
 		if (SlideStorge(i)) { // 滑动仓库
-			Sleep(300);
+			Sleep(1000);
 		}
 
 		ComPoint cp[1];
 		PrintStorageImg(true); // 截取仓库图片
 		if (m_pGame->m_pPrintScreen->ComparePixel(name, cp, 1)) {
-			DbgPrint("取物.%s:(%d,%d)\n", name, cp[0].x, cp[0].y);
-			LOGVARN2(64, "c0", L"取物.%hs:(%d,%d)\n", name, cp[0].x, cp[0].y);
-			m_pGame->m_pGameProc->Click(cp[0].x, cp[0].y);
+			LOGVARN2(64, "c0", L"取物:%hs %d,%d", name, cp[0].x, cp[0].y);
+#if 0
+			m_pGame->m_pButton->ClickPic(m_pGame->m_pGameProc->m_pAccount->Wnd.Game, m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+				cp[0].x, cp[0].y, 50, false);
+#else
+			m_pGame->m_pButton->ClickRel(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+				BUTTON_ID_CKIN_ITEM, "存储物品栏", cp[0].x, cp[0].y, 0xff, false);
+#endif
+			Sleep(600);
 			count = 1;
 		}
 
-		if (m_pGame->m_pPrintScreen->CompareImage(CIN_NoItem, nullptr, 1))
-			break;
-		if (m_pGame->m_pPrintScreen->CompareImage(CIN_LockItem, nullptr, 1))
+		if (m_pGame->m_pPrintScreen->ComparePixel("没有物品", nullptr, 1))
 			break;
 	}
+#else	
+	for (int i = 0; i <= 5; i++) {
+		if (m_pGame->m_pGameProc->m_bPause)
+			break;
 
+		if (SlideStorge(i)) // 滑动仓库页码
+			Sleep(1000);
+
+		ITEM_TYPE storage_items[60];
+		ReadStorageItem(storage_items, sizeof(storage_items));
+		for (int n = 0; n < sizeof(storage_items) / sizeof(ITEM_TYPE); n++) {
+			if (storage_items[n] && storage_items[n] == type) {
+				int click_x, click_y;
+				GetBagClickPos(n, click_x, click_y);
+
+				LOGVARN2(64, "c0", L"取物:%hs %d,%d(%d)", name, click_x, click_y, n);
+				m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+					BUTTON_ID_CKIN_ITEM, "存储物品栏", click_x, click_y, 0xff, false);
+				Sleep(600);
+
+				count++;
+				ReadStorageItem(storage_items, sizeof(storage_items));
+				n = 0;
+				continue;
+			}
+		}
+
+		if (!StorageNeedPageDown())
+			break;
+	}
+#endif
 	if (close) {
-		Sleep(150);
+		Sleep(200);
 		CloseStorage();
+		Sleep(300);
 	}
 
+	DbgPrint("取物完成.\n");
+	LOG2(L"取物完成.", "c0");
 	return count;
 }
 
 // 获取背包物品数量
-int Item::GetBagCount(ComImgIndex index)
+int Item::GetBagItemCount(const char* name)
 {
-	DWORD _tm = GetTickCount();
-
+	int count = 0;
 	OpenBag();
 	Sleep(1000);
 
-	int count = 0; // 数量
-	for (int i = 0; i <= 3; i++) {
+#if IS_READ_MEM == 0
+	for (int i = 0; i < 2; i++) {
 		if (SlideBag(i)) { // 滑动背包
 			Sleep(300);
 		}
 
 		PrintBagImg(true); // 截取背包图片
-		int num = m_pGame->m_pPrintScreen->CompareImage(index);
-		DbgPrint("%d.背包物品数量:%d\n", i + 1, num);
-		LOGVARN2(64, "c0", L"%d.背包物品数量:%d", i + 1, num);
+		int num = m_pGame->m_pPrintScreen->ComparePixel(name);
+		//DbgPrint("%d.背包物品数量:%d\n", i + 1, num);
+		//LOGVARN2(64, "c0", L"%d.背包物品数量:%d", i + 1, num);
 
 		count += num;
 		if (count > 0 && num == 0) // 后面已没物品
 			break;
 
-		if (m_pGame->m_pPrintScreen->CompareImage(CIN_NoItem, nullptr, 1))
-			break;
-		if (m_pGame->m_pPrintScreen->CompareImage(CIN_LockItem, nullptr, 1))
+		if (m_pGame->m_pPrintScreen->ComparePixel("没有物品", nullptr, 1))
 			break;
 	}
+#else
+	ITEM_TYPE type = (ITEM_TYPE)m_pGame->m_pGameConf->TransFormItemType(name);
+	for (int i = 0; i < 5; i++) {
+		if (SlideBag(i)) // 滑动背包
+			Sleep(1000);
 
-	Sleep(500);
+		ITEM_TYPE bag_items[40];
+		ReadBagItem(bag_items, sizeof(bag_items));
+		for (int n = 0; n < sizeof(bag_items) / sizeof(ITEM_TYPE); n++) {
+			if (bag_items[n] && bag_items[n] == type)
+				count++;
+		}
+
+		if (!BagNeedPageDown())
+			break;
+	}
+#endif
+
+	Sleep(200);
 	CloseBag();
 
-	_tm = GetTickCount() - _tm;
-	DbgPrint("获取物品用时:%.2f秒, %d毫秒\n", (float)_tm / 1000.0f, _tm);
-	LOGVARN2(64, "c0", L"获取物品用时:%d秒, %d毫秒", _tm / 1000, _tm);
 	return count;
 }
 
 // 获取快捷栏物品数量
 int Item::GetQuickYaoOrBaoNum(int& yaobao, int& yao, _account_* account)
 {
+	// 1060,858 596,793 611,808
+	// 15,15 - 30,25
 	account = account ? account : m_pGame->m_pGameProc->m_pAccount;
+#if IS_READ_MEM == 0
+	m_pGame->m_pPrintScreen->CopyScreenToBitmap(account->Wnd.Game, 612, 810, 660, 823, 0, true);
+	yaobao = m_pGame->m_pPrintScreen->LookNum(30, 0, 0, 0, 0xffffffff, 0x00000000);
+	yao = m_pGame->m_pPrintScreen->LookNum(0, 15, 0, 0, 0xffffffff, 0x00000000);
+#else
 	int data[2] = {0, 0};
 	m_pGame->m_pGameData->ReadMemory((PVOID)account->Addr.QuickItemNum, data, sizeof(data), account);
 	yao = data[0];
 	yaobao = data[1];
+#endif
 	//DbgPrint("药包数量:%d 药数量:%d\n", yaobao, yao);
 
 	return 0;
@@ -1108,7 +1201,8 @@ ComImgIndex Item::GetItemComImgIndex(const char * name)
 // 截取背包图片
 HBITMAP Item::PrintBagImg(bool del)
 {
-	HBITMAP bitmap = m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_pGame->m_pGameProc->m_hWndGame, 672, 158, 1170, 620);
+	// 1057,552 8,8 1065,560
+	HBITMAP bitmap = m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_pGame->m_pGameProc->m_hWndGame, 1057, 552, 1410, 690);
 	if (del) {
 		m_pGame->m_pPrintScreen->GetPixel(0, 0);
 		DeleteBagImg();
@@ -1125,7 +1219,8 @@ void Item::DeleteBagImg()
 // 截取仓库图片
 HBITMAP Item::PrintStorageImg(bool del)
 {
-	HBITMAP bitmap = m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_pGame->m_hWndBig, 113, 158, 620, 620);
+	// 1055,226 
+	HBITMAP bitmap = m_pGame->m_pPrintScreen->CopyScreenToBitmap(m_pGame->m_hWndBig, 1055, 226, 1410, 435);
 	if (del) {
 		m_pGame->m_pPrintScreen->GetPixel(0, 0);
 		DeleteBagImg();

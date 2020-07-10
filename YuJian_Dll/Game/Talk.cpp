@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "Home.h"
 #include "Talk.h"
+#include "Item.h"
 #include "Button.h"
 #include "PrintScreen.h"
 #include "GameProc.h"
@@ -66,20 +67,38 @@ void Talk::Select(DWORD no, bool show_log)
 // NPC对话选择项
 void Talk::Select(const char* name, HWND pic, bool show_log)
 {
-	int x, y;
+	int x = 0, y = 0;
 	bool moumov = GetSelectClickPos(name, x, y, pic);
 
-	DbgPrint("选择:%hs(%d,%d)\n", name, x, y);
-	if (show_log)
-		LOGVARN2(32, "c6", L"选择:%hs(%d,%d)", name, x, y);
-
-	m_pGame->m_pButton->ClickTalk(pic, x, y, moumov);
+	if (show_log) {
+		DbgPrint("选择:%hs(%d,%d) %d\n", name, x, y, moumov);
+		LOGVARN2(32, "c6", L"选择:%hs(%d,%d) %d", name, x, y, moumov);
+	}
+		
+	m_pGame->m_pButton->ClickTalk(pic, x, y, true);
 }
 
 // NPC对话状态[对话框是否打开]
 bool Talk::NPCTalkStatus(HWND pic)
 {
-	return !m_pGame->m_pButton->IsDisabled(pic);
+	HWND talkWnd = m_pGame->m_pButton->FindTalkWnd(pic);
+	//DbgPrint("NPCTalkStatus->talkWnd:%08X\n", talkWnd);
+	return !m_pGame->m_pButton->IsDisabled(talkWnd);
+}
+
+// 等待商店打开
+bool Talk::WaitShopOpen(DWORD ms)
+{
+	if (ms == 0)
+		ms = 1350;
+
+	for (int i = 0; i < ms; i += 100) {
+		if (m_pGame->m_pItem->BagIsOpen())
+			return true;
+
+		Sleep(100);
+	}
+	return false;
 }
 
 // 等待对话框打开
@@ -124,12 +143,42 @@ bool Talk::TalkBtnIsOpen()
 bool Talk::GetSelectClickPos(const char* name, int& click_x, int& click_y, HWND pic)
 {
 	int x = 50, y = 0;
-	int x2 = 286, y2 = 0;
+	int x2 = 200, y2 = 0;
 
-	if (strcmp(name, "关闭魔法障壁") == 0) {
+	if (strcmp(name, "钥匙开启入口") == 0) {
+		y = 127, y2 = 132;
+	}
+	else if (strcmp(name, "项链开启入口") == 0) {
+		y = 162, y2 = 165;
+	}
+	else if (strcmp(name, "进入卡利亚堡") == 0) {
+		y = 127, y2 = 132;
+	}
+	else if (strcmp(name, "继续进入副本") == 0) {
+		y = 127, y2 = 132;
+	}
+	else if (strcmp(name, "离开卡利亚堡[外]") == 0) {
+		y = 162, y2 = 163;
+	}
+	else if (strcmp(name, "我要离开[外]") == 0) {
+		y = 172, y2 = 178;
+	}
+	else if (strcmp(name, "离开卡利亚堡") == 0) {
+		y = 126, y2 = 135;
+	}
+	else if (strcmp(name, "我要离开") == 0) {
+		y = 126, y2 = 135;
+	}
+	else if (strcmp(name, "最后离开.确定") == 0) {
+		y = 145, y2 = 150;
+	}
+	else if (strcmp(name, "关闭魔法障壁") == 0) {
 		y = 170, y2 = 180;
 	}
-	if (strcmp(name, "解开四骑士祭坛") == 0) {
+	else if (strcmp(name, "关闭爆雷障壁") == 0) {
+		y = 158, y2 = 163;
+	}
+	else if (strcmp(name, "解开四骑士祭坛") == 0) {
 		y = 170, y2 = 180;
 	}
 	else if (strcmp(name, "解除仇之缚灵柱禁制") == 0) {
@@ -145,19 +194,19 @@ bool Talk::GetSelectClickPos(const char* name, int& click_x, int& click_y, HWND 
 		y = 186, y2 = 195;
 	}
 	else if (strcmp(name, "献祭1000点生命(第二关)") == 0) {
-		y = 186, y2 = 195;
+		y = 172, y2 = 178;
 	}
 	else if (strcmp(name, "献祭2000点生命(第二关)") == 0) {
-		y = 222, y2 = 230;
+		y = 207, y2 = 212;
 	}
 	else if (strcmp(name, "献祭500点魂力(第二关)") == 0) {
-		y = 255, y2 = 260;
+		y = 240, y2 = 246;
 	}
 	else if (strcmp(name, "献祭1000点生命(第三关)") == 0) {
 		y = 186, y2 = 195;
 	}
 	else if (strcmp(name, "献祭3000点生命(第三关)") == 0) {
-		y = 222, y2 = 230;
+		y = 220, y2 = 225;
 	}
 	else if (strcmp(name, "献祭500点魂力(第三关)") == 0) {
 		y = 255, y2 = 260;
@@ -216,20 +265,23 @@ bool Talk::GetSelectClickPos(const char* name, int& click_x, int& click_y, HWND 
 	else if (strcmp(name, "荣誉即吾命") == 0) {
 		y = 170, y2 = 180;
 	}
-	else if (strcmp(name, "离开卡利亚堡") == 0) {
-		y = 126, y2 = 135;
+	else if (strcmp(name, "卖东西.装备商") == 0) {
+	    y = 160, y2 = 163;
 	}
-	else if (strcmp(name, "我要离开") == 0) {
-		y = 126, y2 = 135;
+	else if (strcmp(name, "卖东西.武器商") == 0) {
+		y = 130, y2 = 133;
 	}
-	else if (strcmp(name, "最后离开.确定") == 0) {
-		y = 145, y2 = 150;
+	else if (strcmp(name, "卖东西.杂货商") == 0) {
+		y = 160, y2 = 163;
+	}
+	else if (strcmp(name, "卖东西.首饰商") == 0) {
+		y = 130, y2 = 135;
 	}
 
 	click_x = MyRand(x, x2);
 	click_y = MyRand(y, y2);
 
-	HWND talkWnd = ::FindWindowEx(pic, NULL, NULL, NULL);
+	HWND talkWnd = m_pGame->m_pButton->FindTalkWnd(pic);
 	RECT rect;
 	::GetWindowRect(talkWnd, &rect);
 	POINT point;
@@ -239,6 +291,17 @@ bool Talk::GetSelectClickPos(const char* name, int& click_x, int& click_y, HWND 
 		return true;
 	if ((point.y < (rect.top + y)) || (point.y > (rect.top + y2)))
 		return true;
+
+	if ((point.x > (rect.left + x)) && (point.x < (rect.left + x2))) {
+		if (point.x < (rect.left + x + 100)) {
+			//LOGVARN2(64, "green", L"point.x < (rect.left + x + 100):%d-%d", point.x + 5, point.x + 15);
+			click_x = MyRand(point.x - rect.left + 2, point.x - rect.left + 5);
+		}	
+		else {
+			//LOGVARN2(64, "green", L"point.x >= (rect.left + x + 100):%d-%d", point.x - 5, point.x - 15);
+			click_x = MyRand(point.x - rect.left - 2, point.x - rect.left - 5);
+		}	
+	}
 
 	return false;
 }

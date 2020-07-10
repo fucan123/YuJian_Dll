@@ -106,12 +106,12 @@ public:
 	int GetPixelPos(DWORD color, int& pos_x, int& pos_y, DWORD diff = 0);
 	// 获取这种颜色的数量有多少
 	int  GetPixelCount(DWORD color, DWORD diff=0, bool print=false);
+	// 获取这种像数连续有多少数量
+	int  GetPixelConCount(int& x_count, int& y_count, DWORD color, DWORD diff=0);
 	// 获取灰色像素值的数量
 	int  GetGrayPiexlCount(bool print = false);
 	// 获取灰色像素值的数量(start_x=x开始位置, end_x=x结束位置）
 	int  GetGrayPiexlCount(int start_x, int end_x, bool print = false);
-	// 比较图片 返回符合要求数量
-	int  CompareImage(ComImgIndex index, ComPoint* save=nullptr, int length=0);
 	// 比较像数 返回符合要求数量
 	int  ComparePixel(const char* key, ComPoint* save = nullptr, int length = 0);
 
@@ -121,50 +121,6 @@ public:
 	// 像数是否符合要求 pixel=原像数原色 color=比较的颜色值 diff=允许的差值
 	bool IsThePixel(int pixel, int color, int diff);
 
-	// 获取空物品像数信息
-	void GetNoItemPixelData(int save[255]);
-	// 获取未开启物品格子像数
-	void GetLockItemPixelData(int save[255]);
-	// 获取药包像素信息
-	void GetYaoBaoPixelData(int save[255]);
-	// 获取卡利亚手记像素信息
-	void GetShouJiPixelData(int save[255]);
-	// 获取巴力混沌发型包像素信息
-	void GetFaXingPixelData(int save[255]);
-	// 获取星辰之眼像数信息
-	void GetXingChenPixelData(int save[255]);
-	// 获取幻魔晶石像素信息
-	void GetHuanMoPixelData(int save[255]);
-	// 获取魔魂晶石像素信息
-	void GetMoHunPixelData(int save[255]);
-	// 获取灵魂晶石像素信息
-	void GetLingHunPixelData(int save[255]);
-	// 获取青螭礼包像素信息
-	void GetQingChiPixelData(int save[255]);
-	// 获取紫冥礼包像素信息
-	void GetZiMingPixelData(int save[255]);
-	// 获取卡迪礼包像素信息
-	void GetKaDiPixelData(int save[255]);
-	// 获取亚尔礼包像素信息
-	void GetYaErPixelData(int save[255]);
-	// 获取穆巴礼包像素信息
-	void GetMuBaPixelData(int save[255]);
-	// 获取鲁迪礼包像素信息
-	void GetLuDiPixelData(int save[255]);
-	// 获取爱娜的项链像素信息
-	void GetXiangLianPixelData(int save[255]);
-	// 获取是否在副本像素信息[截取地图名称第一个字]
-	void GetInFBPiexlData(int save[255]);
-	// 获取地图打开像素信息
-	void GetMapOpenPiexlData(int save[255]);
-	// 获取弹框确定按钮像素信息
-	void GetSureBtnPiexlData(int save[255]);
-	// 获取登录按钮像数信息
-	void GetCanLoginPiexlData(int save[255]);
-	// 获取社交图标像数信息
-	void GetInTeamFlagPiexlData(int save[255]);
-	// 副本邀请同意图标
-	void GetInFBFlagPiexlData(int save[255]);
 	// 释放
 	void Release();
 
@@ -177,8 +133,6 @@ public:
 private:
 	// 是否锁定了
 	bool m_bLocked = false;
-	// 比较图片
-	bool  CompareImage(int screen_x, int screen_y, ComImgIndex index);
 	// 比较像数
 	bool  ComparePixel(int screen_x, int screen_y, ComPixel* p);
 public:
@@ -201,6 +155,7 @@ public:
 	int m_yScrn = 0;
 
 	char* m_pBuffer;
+	char* m_pTmp;
 	bool m_bIsGetBuffer = false;
 	LONG m_bmWidthBytes = 0;
 	LONG m_bmWidth = 0;

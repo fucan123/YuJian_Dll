@@ -1,23 +1,56 @@
 #pragma once
 #include <Windows.h>
 
-#define ADDR_ACCOUNT_NAME   0x0EDF658     // 登录帐号名称
-#define ADDR_ROLE_NAME      0x0F186B4     // 游戏角色名称
+#define IS_READ_MEM         0x0000001     // 是否开启MEM模式
+
+#define ADDR_ACCOUNT_NAME   0x102CDE8     // 登录帐号名称
+#define ADDR_ROLE_NAME      0x10666FC     // 游戏角色名称
 #define ADDR_SERVER_NAME    0x11BD7E4     // 游戏区服名称
-#define ADDR_COOR_X_OFFSET  0x0F60C3C     // X坐标地址在模块里面的偏移[MOD_3drole]
-#define ADDR_COOR_Y_OFFSET  0x0F60C38     // Y坐标地址在模块里面的偏移[MOD_3drole]
-#define ADDR_LIFE_OFFSET    0x0F185E8     // 血量地址在模块里面的偏移[MOD_3drole]
-#define ADDR_LIFEMAX_OFFSET 0x0F185EC     // 血量上限地址在模块里面的偏移[MOD_3drole]
+#define ADDR_COOR_X_OFFSET  0x10AFEBC     // X坐标地址在模块里面的偏移[MOD_3drole]
+#define ADDR_COOR_Y_OFFSET  0x10AFEB8     // Y坐标地址在模块里面的偏移[MOD_3drole]
+#define ADDR_LIFE_OFFSET    0x1066630     // 血量地址在模块里面的偏移[MOD_3drole]
+#define ADDR_LIFEMAX_OFFSET 0x1066630     // 血量上限地址在模块里面的偏移[MOD_3drole]
+
+#define SCREEN_X 1440 // 屏幕的宽度
+#define SCREEN_Y 900  // 屏幕的高度
 
 /// 游戏物品类型
 enum ITEM_TYPE
 {
 	未知物品 = 0x00,       // 不知道什么物品
+	特制经验球礼包 = 0x000B1FC8,
+	白羊星穆巴礼包 = 0x000B21B0,
 	白羊星卡迪礼包 = 0x000B21B1,
+	金牛星亚尔礼包 = 0x000B21BB,
+	金牛星鲁迪礼包 = 0x000B21BC,
 	速效治疗包 = 0x000B5593, // 可以开出几瓶速效治疗药水
+	亚特速报 = 0x000B84E9,
 	燧石钥匙 = 0x000B55FA,
+	莎顿的宝库钥匙 = 0x000B5545,
+	圣光炼金卷轴 = 0x000B55F8,
+	清凉的圣水 = 0x000B55F9,
 	卡利亚堡钥匙 = 0x000B55FB,
+	蓝色祝福碎片 = 0x000B561E,
+	女伯爵的铜镜 = 0x000B5797,
+	卡利亚手记一 = 0x000B578C,
+	卡利亚手记二 = 0x000B578D,
+	卡利亚手记三 = 0x000B578E,
+	卡利亚手记四 = 0x000B578F,
+	卡利亚手记五 = 0x000B5790,
+	卡利亚手记六 = 0x000B5791,
+	卡利亚手记七 = 0x000B5792,
+	卡利亚手记八 = 0x000B5793,
+	卡利亚手记九 = 0x000B5794,
+	卡利亚手记十 = 0x000B5795,
+	巴力混沌发型包 = 0x000B579D,
+	爱娜祈祷项链 = 0x000B5B24,
 	神恩治疗药水 = 0x000B783C,
+	四百点图鉴卡一 = 0x000C5D77,
+	四百点图鉴卡二 = 0x000C614D,
+	O礼包6星   = 0x000C67C9,
+	XO礼包12星 = 0x000C67C8,
+	XO礼包25星 = 0x000C6FA4,
+	双子星青螭礼包 = 0x000C6FD7,
 	双子星紫冥礼包 = 0x000C6FD8,
 	速效治疗药水 = 0x000F6982, // +2500生命值
 	速效圣兽灵药 = 0x000F943E, // 复活宝宝的
@@ -28,6 +61,7 @@ enum ITEM_TYPE
 	灵魂晶石 = 0x000FD368,
 	幻魔晶石 = 0x000FD372,
 };
+
 // 自动捡拾物品信息
 typedef struct conf_item_info
 {
@@ -53,6 +87,7 @@ typedef struct game_data_addr
 	DWORD QuickMagicNum; // 技能快捷栏上面物品显示数量
 	DWORD QuickItemNum;  // 物品栏上面物品显示数量
 	DWORD Bag;           // 背包物品地址
+	DWORD Storage;       // 仓库物品地址
 } GameDataAddr;
 
 // 共享写入目的地xy地址数据
@@ -76,7 +111,7 @@ public:
 
 	
 	// 监听游戏
-	void WatchGame();
+	int  WatchGame();
 	// 获取游戏窗口
 	void FindGameWnd();
 	// 枚举窗口
@@ -100,6 +135,8 @@ public:
 	bool FindLifeAddr();
 	// 获取背包物品地址
 	bool FindBagAddr();
+	// 获取仓库物品地址
+	bool FindStorageAddr();
 	// 获取人物屏幕坐标
 	bool FindScreenPos();
 	// 获取画面缩放数值地址
@@ -109,17 +146,12 @@ public:
 	bool ReadName(char* name, _account_* account=nullptr);
 	// 读取坐标
 	bool ReadCoor(DWORD* x=nullptr, DWORD* y=nullptr, _account_* account=nullptr);
+	// 解析坐标数据
+	int  FormatCoor(HWND hWnd);
 	// 获取屏幕坐标
 	bool ReadScreenPos(int& x, int& y, _account_* account = nullptr);
 	// 读取生命值
 	DWORD ReadLife(DWORD* life=nullptr, DWORD* life_max=nullptr, _account_* account=nullptr);
-
-	// 创建共享内存
-	void CreateShareMemory();
-	// 写入目的地
-	void WriteMoveCoor(DWORD x, DWORD y, _account_* account=nullptr);
-	// 写入画面数值
-	bool WritePicScale(DWORD v, _account_* account = nullptr);
 
 	// 搜索特征码
 	DWORD SearchCode(DWORD* codes, DWORD length, DWORD* save, DWORD save_length = 1, DWORD step = 4);
@@ -154,7 +186,9 @@ public:
 	// 游戏句柄
 	HANDLE m_hProcessBig = NULL;
 	// 大号
-	_account_* m_pAccoutBig = NULL;
+	_account_* m_pAccountBig = NULL;
+	// 临时
+	_account_* m_pAccountTmp = NULL;
 
 	// 游戏权限句柄
 	HANDLE   m_hGameProcess = NULL;

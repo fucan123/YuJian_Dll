@@ -2,7 +2,7 @@
 #include "GameData.h"
 #include <Windows.h>
 
-#define MAX_CONF_ITEMS   16
+#define MAX_CONF_ITEMS   32
 
 class Game;
 class GameConf
@@ -29,8 +29,9 @@ private:
 	void ReadTrump(const char* data);
 	// 读取其它设置
 	void ReadSetting(const char* data);
+public:
 	// 转成物品类型
-	int TransFormItemType(const char* item_name);
+	int TransFormItemType(const char* name);
 public:
 	Game* m_pGame;
 

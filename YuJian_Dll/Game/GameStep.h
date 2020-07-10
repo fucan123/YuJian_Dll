@@ -28,6 +28,8 @@ enum STEP_CODE
 	OP_MOVERAND,        // 随移
 	OP_MOVEPICKUP,      // 移动去捡物
 	OP_MOVENPC,         // 移至哪一个NPC
+	OP_MOVEONE,         // 只移动一次
+	OP_MOVECLICK,       // 点击移动目的
 	OP_NPC,             // NPC对话
 	OP_SELECT,          // 选择对话选项
 	OP_MAGIC,           // 技能
@@ -88,17 +90,21 @@ struct _step_
 	DWORD     Y;           // 要操作的位置Y
 	DWORD     X2;
 	DWORD     Y2;
+	DWORD     Clx;          // 要点击的位置X
+	DWORD     Cly;          // 要点击的位置Y
+	DWORD     Clx2;
+	DWORD     Cly2;
 	DWORD     NPCId;        // 要对话的NPCID 
 	CHAR      NPCName[32];  // 要对话的NPC名称
 	DWORD     SelectNo;     // 对话选择索引 0开始
 	CHAR      Name[128];    // 名称 根据操作码来区别
 	CHAR      Magic[128];   // 技能
 	DWORD     WaitMs;       // 等待多少毫秒或是否等待技能冷却或技能可以有多少秒冷却
-	DWORD     OpCount;      // 操作次数
+	int       OpCount;      // 操作次数
 	DWORD     ButtonId;     // 按钮ID
 	int       SmallV;       // 小号操作值
 	DWORD     Extra[8];     // 扩展
-	__int64   ExecTime;     // 执行时间
+	int       ExecTime;     // 执行时间
 	bool      Exec;         // 已在执行
 	int       Index;        // 索引
 
@@ -180,6 +186,8 @@ public:
 
 	// 游戏步骤数量
 	int m_iStepCount = 0;
+	// 初始化步骤
+	int m_iStepInitIndex = 0;
 	// 当前执行步骤索引
 	int m_iStepIndex = 0;
 	// 当前执行步骤索引[m_GoLeiMingStep]

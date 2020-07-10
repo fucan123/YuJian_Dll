@@ -10,7 +10,7 @@
 #define P2DW(v) (*(DWORD*)(v))       // 转成DWORD数值
 #define P2INT(v) (*(int*)(v))        // 转成int数值
 
-#if 1
+#if 0
 #define DbgPrint(...) ::printf(__VA_ARGS__)
 #else
 #define DbgPrint(...)
@@ -98,6 +98,7 @@ typedef struct _account_
 	DWORD  LastX;         // 上次的位置x
 	DWORD  LastY;         // 上次的位置y
 	DWORD  MvTime;        // 上次移动时间
+	int    MvFlag;        // 负数为模糊检测(检测到一定范围即可,负多少代表允许范围值)
 
 	HANDLE Process;       // 权限句柄
 	struct {
