@@ -41,7 +41,7 @@ public:
 	// 鼠标移动到游戏窗口位置
 	void SetGameCursorPos(int x, int y);
 	// 窗口置前
-	void SetForegroundWindow(HWND hwnd);
+	void SetForegroundWindow(_account_* account);
 	// 执行
 	void Exec(_account_* account);
 	// 运行

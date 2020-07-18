@@ -28,6 +28,8 @@ bool Item::OpenBag()
 		if (m_pGame->m_pButton->CheckButton(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, 
 			BUTTON_ID_BAG_ITEM, "MPC物品栏")) {
 			Sleep(800);
+			DbgPrint("背包已经打开\n");
+			LOG2(L"背包已经打开", "c0");
 			return true;
 		}
 	}
@@ -563,6 +565,7 @@ int Item::DropItem(DWORD* ms)
 			break;
 	}
 #endif
+	m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Game, BUTTON_ID_CLOSEMENU, "C");
 	Sleep(200);
 	CloseBag();
 	Sleep(300);
@@ -592,6 +595,13 @@ void Item::UseItem(const char* name, int x, int y)
 #else
 	m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
 		BUTTON_ID_BAG_ITEM, "MPC物品栏", x, y, 0xff, false);
+#endif
+#if 1
+	if (m_pGame->m_pTalk->WaitTalkOpen(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic)) {
+		m_pGame->m_pTalk->Select("活动.全部直接合成+1或+2", m_pGame->m_pGameProc->m_pAccount->Wnd.Pic);
+		Sleep(500);
+		m_pGame->m_pTalk->Select("活动.全部直接合成+1或+2.确定", m_pGame->m_pGameProc->m_pAccount->Wnd.Pic);
+	}
 #endif
 
 	Sleep(500);
@@ -1076,6 +1086,7 @@ int Item::GetBagItemCount(const char* name)
 	OpenBag();
 	Sleep(1000);
 
+	DbgPrint("获取背包物品数量:%s\n", name);
 #if IS_READ_MEM == 0
 	for (int i = 0; i < 2; i++) {
 		if (SlideBag(i)) { // 滑动背包

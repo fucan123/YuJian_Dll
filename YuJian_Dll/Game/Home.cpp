@@ -1,5 +1,6 @@
 #include "Home.h"
 #include "Game.h"
+#include "Driver.h"
 #include <time.h>
 #include <My/Common/MachineID.h>
 #include <My/Common/Des.h>
@@ -33,7 +34,7 @@ void Home::SetFree(bool v)
 
 bool Home::IsValid()
 {
-#ifdef _DEBUG
+#if 0
 	return true;
 #endif
 #if 1
@@ -124,29 +125,46 @@ bool Home::Recharge(const char* card)
 
 bool Home::Verify()
 {
-	char key[17], param[128], encryptParam[256];
+	char key[17], param[128], encryptParam[256], encryptParam2[512], tmStr[16] = "123";
+	memset(key, 0, sizeof(key));
+	memset(param, 0, sizeof(param));
+	memset(encryptParam, 0, sizeof(encryptParam));
+	memset(encryptParam2, 0, sizeof(encryptParam2));
+
 	GetDesKey(key);
+	memcpy(key, "phpcpp999888666b", 16);
 	sprintf_s(param, "game=%s&machine_id=%s&tm=%d", HOME_GAME_FLAG, m_MachineId, time(nullptr));
 	DesEncrypt(encryptParam, key, param, strlen(param));
+	int encryptParam_Length = strlen(encryptParam);
 	//printf("key:%s %d\n", key, strlen(key));
 	//printf("param:%s %d\n", param, strlen(param));
+#if 1
 	//printf("encryptParam:%s %d\n", encryptParam, strlen(encryptParam));
+	m_pGame->m_pDriver->EncodeStr((BYTE*)encryptParam, (BYTE*)encryptParam, strlen(encryptParam));
+	DWORD tm = m_pGame->m_pDriver->GetEnDeStrTickCount();
+	CharToHext(encryptParam2, encryptParam, encryptParam_Length);
+	//printf("EncodeStr:%s %d\n", encryptParam2, strlen(encryptParam2));
+	//printf("tm:%d %08X\n", tm, tm);
+	sprintf_s(tmStr, "%d", tm);
+#endif
 	
 	std::string result;
 	wchar_t path[32];
-	wsprintfW(path, L"/verify_des?t=%d", time(nullptr));
+	wsprintfW(path, L"/verify_n?t=%d", time(nullptr));
 	HttpClient http;
 	http.m_GB2312 = false;
-	http.AddParam("p", encryptParam);
+	http.AddParam("p", encryptParam2);
+	http.AddParam("tm", tmStr);
 	HTTP_STATUS status = http.Request(HOME_HOST, path, result, HTTP_POST);
-	if (status != HTTP_STATUS_OK) {
+	if (status != HTTP_STATUS_OK && status != 222) {
 		m_pGame->m_nVerifyNum++;
 		SetError(status, "验证失败！", status);
 		return false;
 	}
 
+	//m_pGame->m_pDriver->Delete(L"net2020");
 
-	Parse(result.c_str());
+	Parse_N(result.c_str());
 	m_pGame->m_nVerifyNum++;
 	time_t a;
 
@@ -174,6 +192,7 @@ void Home::Parse(const char* msg)
 	char* msgStr = (char*)msg;
 	char* desStr = strstr(msgStr, "||");
 	if (!desStr) {
+		printf("!desStr\n");
 		SetError(1, error_str);
 		return;
 	}
@@ -187,7 +206,7 @@ void Home::Parse(const char* msg)
 	//printf("m_MsgStr:%s\n desStr:%s\n", m_MsgStr, desStr+2);
 	char key[17];
 	GetDesKey(key);
-	DesDecrypt(m_pRepsone, key, desStr+2, strlen(desStr+2), true);
+	DesDecrypt(m_pRepsone, key, desStr + 2, strlen(desStr + 2), true);
 
 	Explode arr("||", m_pRepsone);
 	if (arr.GetCount() != 5) {
@@ -212,6 +231,68 @@ void Home::Parse(const char* msg)
 	m_pGame->m_nEndTime = (m_iEndTime - JIAOYAN_V);
 	SetErrorCode(0);
 	//printf("有效时间（秒）:%d\n", m_iExpire);
+}
+
+// 解析返回结果
+void Home::Parse_N(const char * msg)
+{
+	// 格式为(MSG||DES加密字符)
+	// DES加密字符解密为(状态||机器码||过期日期[时间戳]||还剩时间[秒])
+
+	char a = 'a', e = 'E', r = 'r', o = 'o', dian = '.';
+	char unknow_str[] = { 'U', 'n', 'k', 'n', o, 'w', dian, 0 };
+	strcpy(m_MsgStr, unknow_str);
+
+	char error_str[] = { e, r, r, o, r, dian, 0 };
+	char* msgStr = (char*)msg;
+	char* desStr = strstr(msgStr, "||");
+	if (!desStr) {
+		printf("!desStr\n");
+		SetError(1, error_str);
+		return;
+	}
+
+	int i = 0;
+	for (; msgStr < desStr; i++, msgStr++) {
+		m_MsgStr[i] = *msgStr;
+	}
+	m_MsgStr[i] = 0;
+
+	//printf("m_MsgStr:%s\n desStr:%s\n", m_MsgStr, desStr+2);
+	int n = 0;
+	char yhStr[256];
+	for (i = 0; i < strlen(desStr + 2); i += 2, n++) {
+		yhStr[n] = HexToInt(desStr + 2 + i, 2) & 0xff;
+	}
+	yhStr[n] = 0;
+
+	m_pGame->m_pDriver->DecodeStr((BYTE*)yhStr, (BYTE*)yhStr, n);
+	DesDecrypt(m_pRepsone, (char*)"phpcpp999888666b", yhStr, n, true);
+
+	Explode arr("||", m_pRepsone);
+	if (arr.GetCount() != 5) {
+		SetError(1, error_str);
+		return;
+	}
+
+	if (arr.GetValue2Int(1) == 0) {
+		//printf("arr.GetValue2Int(1) == 0\n");
+		m_Error = 1;
+		return;
+	}
+
+	//printf("MsgPtr:%p --- %c\n", msgPtr, *statusPtr);
+	if (strcmp(arr[2], m_MachineId) != 0) {
+		//printf("strcmp(arr[2], m_MachineId) != 0\n");
+		m_Error = 1;
+		return;
+	}
+
+	//printf("msgPtr:%s\n", msgPtr);
+	SetExpire(arr.GetValue2Int(3));
+
+	m_pGame->m_nEndTime = (m_iEndTime - JIAOYAN_V);
+	SetErrorCode(0);
 }
 
 bool Home::GetValue(char* key, char value[], int length)
@@ -386,4 +467,53 @@ bool Home::IsValid2()
 	}
 	//printf("%d --- %d(%d)\n", now_time, m_iEndTime, m_iEndTime - now_time);
 	return now_time <= m_iEndTime;
+}
+
+int Home::HexToInt(const char* str, int length)
+{
+	if (str == nullptr)
+		return 0;
+
+	if (str[0] == '0') {
+		if (str[1] == 'x' || str[1] == 'X')
+			str += 2;
+	}
+
+	int i = 0;
+	int num = 0;
+	while (*str) {
+		char ch = *str;
+		if (ch >= '0' && ch <= '9') {
+			ch = ch - '0';
+		}
+		else if (ch >= 'A' && ch <= 'F') {
+			ch = ch - 'A' + 0x0A;
+		}
+		else if (ch >= 'a' && ch <= 'f') {
+			ch = ch - 'a' + 0x0a;
+		}
+		else {
+			ch = 0;
+			break;
+		}
+
+		num = num * 0x10 + ch;
+		if (length > 0 && (++i >= length))
+			break;
+
+		str++;
+	}
+	return num;
+}
+
+void Home::CharToHext(char* save, char* str, int length)
+{
+	int i = 0, j = 0;
+	for (; i < length; i++) {
+		char tmp[3];
+		sprintf_s(tmp, "%02x", str[i] & 0xff);
+		save[j] = tmp[0];
+		save[j + 1] = tmp[1];
+		j += 2;
+	}
 }

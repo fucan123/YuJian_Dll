@@ -128,6 +128,7 @@ ComPixel * PrintScreen::GetComPixel(const char * key)
 // 加载对比图片
 void PrintScreen::LoadCompareImage(ComImgIndex index, wchar_t* path)
 {
+#if 0
 	CompareImageInfo* info = &m_ComImg[index];
 	ZeroMemory(info, sizeof(CompareImageInfo));
 	CImage img;
@@ -153,6 +154,7 @@ void PrintScreen::LoadCompareImage(ComImgIndex index, wchar_t* path)
 		img.Destroy();
 		printf("%ws:%d,%d\n", path, info->Width, info->Height);
 	}
+#endif
 }
 
 // 是否是注入opengl截图
@@ -164,40 +166,6 @@ bool PrintScreen::IsOpenglPs()
 // 注入模拟器
 void PrintScreen::InjectVBox(const char* path, DWORD pid)
 {
-	wchar_t log[256];
-	wchar_t dll[256];
-	wsprintfW(dll, L"%hs\\files\\opengl_ps.dll", path);
-	if (!IsFileExist(dll)) {
-		LOGVARN2(64, "red", L"files目录下不存在opengl_ps.dll文件");
-		return;
-	}
-
-	m_hShareMap = ::CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 
-		sizeof(ShareReadPixelData), L"Share_Read_Pixel");
-	if (!m_hShareMap) {
-		m_pShareBuffer = nullptr;
-		DbgPrint("CreateFileMapping失败(像数信息内存)\n");
-		LOGVARP2(log, "red", L"CreateFileMapping失败(像数信息内存%d)", GetLastError());
-		return;
-	}
-	// 映射对象的一个视图，得到指向共享内存的指针，设置里面的数据
-	m_pShareBuffer = (ShareReadPixelData*)::MapViewOfFile(m_hShareMap, FILE_MAP_ALL_ACCESS, 0, 0, 0);
-	// 初始化
-	ZeroMemory(m_pShareBuffer, sizeof(ShareReadPixelData));
-	BOOL result = InjectDll(pid, dll, L"opengl_ps.dll", TRUE);
-	if (result) {
-		LOGVARP2(log, "green b", L"注入模拟器渲染窗口成功");
-	}
-	else {
-		LOGVARP2(log, "red b", L"注入模拟器渲染窗口失败");
-		char cmd[256];
-		sprintf_s(cmd, "/C %s\\files\\inui32.exe %d", path, pid);
-		printf("调用inui32程序注入opengl_ps:%hs\n", cmd);
-		LOGVARP2(log, "c0 b", L"调用inui32程序注入ui:%d\n", pid);
-		//system(cmd);
-
-		ShellExecuteA(NULL, "open", "cmd", cmd, NULL, SW_HIDE);
-	}
 }
 
 // 初始化
@@ -408,7 +376,7 @@ int PrintScreen::SaveBitmapToFile(HBITMAP hBitmap, LPCWSTR lpFileName)
 	printf("长宽:%d,%d %d %d %d\n", bi.biWidth, bi.biHeight, Bitmap.bmBitsPixel, Bitmap.bmWidthBytes, dwBmBitsSize);
 	//return 0;
 	//创建位图文件     
-	fh = CreateFile(lpFileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+	fh = CreateFileW(lpFileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
 		FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
 	if (fh == INVALID_HANDLE_VALUE) {
 		setlocale(LC_ALL, "");

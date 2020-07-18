@@ -207,7 +207,6 @@ int Move::IsMove(_account_* account)
 
 	DWORD x = 0, y = 0;
 	m_pGame->m_pGameData->ReadCoor(&x, &y, account); // 读取当前坐标
-	DbgPrint("IsMove:%d,%d %d,%d\n", x, y, account->LastX, account->LastY);
 	if (x == account->LastX && y == account->LastY) // 没有移动 1秒内坐标没有任何变化
 		return 0;
 

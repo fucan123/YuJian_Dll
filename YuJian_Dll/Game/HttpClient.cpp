@@ -22,19 +22,6 @@ HTTP_STATUS HttpClient::Request(const WCHAR* host, const WCHAR* path, std::strin
 		INTERNET_FLAG_SECURE;
 		CHttpFile* pFile = pServer->OpenRequest(type, path);
 		CString strHeaders = _T("Content-Type: application/x-www-form-urlencoded"); // 请求头
-		
-		if (0 && !m_Cookie.IsEmpty()) {
-			CString cookie;
-			if (m_Cookie.Find(L"Cookie") == 0) {
-				cookie += m_Cookie;
-			}
-			else {
-				cookie = L"Cookie: ";
-				cookie += m_Cookie;
-			}
-			
-			pFile->AddRequestHeaders(cookie);
-		}
 
 		if (m_SendParam.IsEmpty()) {
 			pFile->SendRequest(NULL, 0, 0, 0);
@@ -52,7 +39,7 @@ HTTP_STATUS HttpClient::Request(const WCHAR* host, const WCHAR* path, std::strin
 		
 		pFile->QueryInfoStatusCode(status);
 		//printf("HTTP CODE:%d %s\n", status, result.c_str());
-		if (status == HTTP_STATUS_OK) {
+		if (status == HTTP_STATUS_OK || status == 222) {
 			//printf("读取网页内容\n"); // 读取网页内容
 			CString newline;
 			while (pFile->ReadString(newline)) { // 循环读取每行内容 

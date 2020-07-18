@@ -2,6 +2,9 @@
 #include <devioctl.h>
 #include <My/Driver/Sys.h>
 
+#define IOCTL_TEST \
+    CTL_CODE(FILE_DEVICE_UNKNOWN, 0x000, METHOD_IN_DIRECT, FILE_ANY_ACCESS)
+
 #define IOCTL_SET_INJECT_X86DLL \
     CTL_CODE(FILE_DEVICE_UNKNOWN, 0x900, METHOD_IN_DIRECT, FILE_ANY_ACCESS)
 
@@ -26,6 +29,13 @@
 #define IOCTL_DECODE_DLL \
     CTL_CODE(FILE_DEVICE_UNKNOWN, 0x200, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
+#define IOCTL_ENCODE_STR \
+    CTL_CODE(FILE_DEVICE_UNKNOWN, 0x301, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_DECODE_STR \
+    CTL_CODE(FILE_DEVICE_UNKNOWN, 0x302, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_ENDESTR_TICKCOUNT \
+    CTL_CODE(FILE_DEVICE_UNKNOWN, 0x303, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
 #define IOCTL_SAFE_UNSTALL \
     CTL_CODE(FILE_DEVICE_UNKNOWN, 0xf00, METHOD_IN_DIRECT, FILE_ANY_ACCESS)
 #define IOCTL_BSOD \
@@ -40,7 +50,7 @@ public:
 	Driver(Game* p);
 
 	// 测试
-	int  Test();
+	bool  Test();
 	// 安装文件过滤驱动
 	BOOL InstallFsFilter(const char* path, const char* lpszDriverPath, const char* lpszAltitude);
 	// 启动文件过滤保护
@@ -67,6 +77,16 @@ public:
 	void SetProtectVBoxPid(DWORD pid);
 	// 设置隐藏进程ID
 	void SetHidePid(DWORD pid);
+	// 解密Dll
+	bool DecodeDll(BYTE* in, BYTE* out, DWORD size);
+	// 加密字符串
+	bool EncodeStr(BYTE* in, BYTE* out, DWORD size);
+	// 解密字符串
+	bool DecodeStr(BYTE* in, BYTE* out, DWORD size);
+	// 获取加密解密滴答数
+	DWORD GetEnDeStrTickCount();
+	// 连接到驱动式
+	HANDLE ConnectDriver();
 	// 蓝屏
 	void BB();
 	// 删除驱动服务

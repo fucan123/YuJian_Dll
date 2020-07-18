@@ -145,8 +145,6 @@ bool MCButton::ClickTalk(HWND pic, int x, int y, bool moumov)
 		Sleep(100);
 	}
 
-	DbgPrint("ClickTalk:%d,%d %d,%d(%08X)\n", rect.left, rect.top, x, y, talkWnd);
-
 	// while (true) Sleep(168);
 	
 	Click(talkWnd, x, y);

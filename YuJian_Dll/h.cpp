@@ -6,10 +6,12 @@
 #include "Game/Driver.h"
 #include "Game/Home.h"
 #include "stdafx.h"
+#include <shlobj.h>
 
 #include "h.h"
 #include <My/Win32/PE.h>
 #include <My/Win32/Peb.h>
+#include <My/Common/func.h>
 
 #include "Asm.h"
 
@@ -32,7 +34,69 @@ typedef struct export_dll_func
 // 无法识别的标志“-Ot”(在“p2”中) 选择vs2017编译 其他链接不上
 // _DllMain@12 已经在 mfcs140u.lib(dllmodul.obj) 中定义 删除_USERDLL
 
+HHOOK g_hook;
 Game game;
+
+// 运行吧
+DWORD __stdcall Run(LPVOID lParam)
+{
+	printf("程序>%d,%d.\n", GetCurrentProcessId(), GetParentProcessID());
+
+#if ISCMD
+	char files_path[MAX_PATH];
+	SHGetSpecialFolderPathA(0, files_path, CSIDL_DESKTOPDIRECTORY, 0);
+	strcat(files_path, "\\YuJian");
+	//DbgPrint("Game_Init:%s\n", files_path);
+	game.Init(NULL, files_path);
+	//::MessageBox(NULL, "OK", "bbb", MB_OK);
+	if (Verify(NULL)) {
+		CreateThread(NULL, NULL, InstallKeyProc, NULL, NULL, NULL);
+		CreateThread(NULL, NULL, PlayGame, NULL, NULL, NULL);
+		RunGame(NULL);
+	}
+#endif
+
+	return 0;
+}
+
+// 安装键盘钩子
+DWORD __stdcall InstallKeyProc(LPVOID lParam)
+{
+	g_hook = SetWindowsHookEx(WH_KEYBOARD_LL, (HOOKPROC)KeyHookProc, GetModuleHandle(nullptr), NULL);
+
+	// 消息循环
+	MSG msg;
+	while (GetMessage(&msg, NULL, 0, 0)) {
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
+	UnhookWindowsHookEx(g_hook);
+	return 0;
+}
+
+// 键盘钩子回调函数
+LRESULT KeyHookProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+	if (nCode < 0)
+		return CallNextHookEx(g_hook, nCode, wParam, lParam);
+
+	if (wParam == WM_KEYDOWN) {
+		PKBDLLHOOKSTRUCT p = (PKBDLLHOOKSTRUCT)lParam;
+		UCHAR vKey = (UCHAR)p->vkCode;
+		if (vKey == 'P') {
+			game.m_pGameProc->m_bPause = true;
+			DbgPrint("游戏暂停\n");
+			game.AddUILog(L"游戏暂停", "red");
+		}
+		if (vKey == 'C') {
+			game.m_pGameProc->m_bPause = false;
+			DbgPrint("游戏继续\n");
+			game.AddUILog(L"游戏继续", "green");
+		}
+	}
+
+	return CallNextHookEx(g_hook, nCode, wParam, lParam);
+}
 
 // 初始化游戏机
 DLLEXPORT void WINAPI EntryIn(HWND hWnd, const char* conf_path)
@@ -222,6 +286,17 @@ DWORD WINAPI Listen(LPVOID param)
 // 激活
 DWORD WINAPI Verify(LPVOID param)
 {
+#if ISCMD
+	DbgPrint("正验证...\n");
+	if (game.m_pHome->Verify()) {
+		DbgPrint("验证成功！！！到期日期时间:%s.\n", game.m_pHome->GetExpireTime_S().c_str());
+		return 1;
+	}
+	else {
+		DbgPrint("验证失败了.\n");
+		return 0;
+	}
+#else
 	game.AddUILog(L"验证卡号...", "c0 b");
 	game.UpdateStatusText(L"正在激活.", 4);
 	if (game.m_pHome->Verify()) {
@@ -238,4 +313,5 @@ DWORD WINAPI Verify(LPVOID param)
 		game.AddUILog(L"未激活.", "red b");
 	}
 	return 0;
+#endif
 }

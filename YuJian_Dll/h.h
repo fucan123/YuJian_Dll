@@ -6,7 +6,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+	// 运行
+	DWORD WINAPI Run(LPVOID lParam);
+	// 安装键盘钩子
+	DWORD WINAPI InstallKeyProc(LPVOID lParam);
+	// 键盘钩子回调函数
+	LRESULT CALLBACK KeyHookProc(_In_ int nCode, _In_ WPARAM wParam, _In_ LPARAM lParam);
 	// 初始化运行库
 	DLLEXPORT void WINAPI EntryIn(HWND hWnd, const char* conf_path);
 	// 游戏是否激活

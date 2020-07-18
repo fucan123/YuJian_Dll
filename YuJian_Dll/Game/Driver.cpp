@@ -13,9 +13,18 @@ Driver::Driver(Game * p)
 }
 
 // 测试
-int Driver::Test()
+bool Driver::Test()
 {
-	return 0x12345678;
+	HANDLE hDevice = ConnectDriver();
+
+	if (hDevice == INVALID_HANDLE_VALUE)
+		return false;
+
+	char in,out;
+	DWORD return_length;
+	BOOL result = DeviceIoControl(hDevice, IOCTL_ENCODE_STR, &in, sizeof(in), &out, sizeof(out),&return_length, NULL);
+	CloseHandle(hDevice);
+	return result;
 }
 
 BOOL Driver::InstallFsFilter(const char* path, const char * lpszDriverPath, const char * lpszAltitude)
@@ -270,12 +279,14 @@ bool Driver::InstallDriver(const char* path)
 	bool is_try = false;
 _try_install_:
 	if (m_SysDll.Install(L"net2020", L"net config", file)) {
+		DbgPrint("Install Driver Ok.\n");
 		LOG2(L"Install Driver Ok.", "green b");
 		return true;
 	}
 	else {
 		if (!is_try) {
 			is_try = true;
+			DbgPrint("Install Driver Failed, Try Agin.\n");
 			LOG2(L"Install Driver Failed, Try Agin.", "red");
 #if 1
 			Delete(L"firenet_safe");
@@ -594,7 +605,7 @@ void Driver::SetProtectVBoxPid(DWORD pid)
 // 设置隐藏进程ID
 void Driver::SetHidePid(DWORD pid)
 {
-	return;
+#if 0
 	DWORD dwWinLogonId = SGetProcessId(L"winlogon.exe");
 	if (!dwWinLogonId) {
 		dwWinLogonId = SGetProcessId(L"WINLOGON.exe");
@@ -638,6 +649,115 @@ void Driver::SetHidePid(DWORD pid)
 	//LOGVARP2(log, "green b", L"隐藏进程:%d", pid);
 
 	CloseHandle(hDevice);
+#endif
+}
+
+// 解密DLL
+bool Driver::DecodeDll(BYTE* in, BYTE* out, DWORD size)
+{
+	HANDLE hDevice = ConnectDriver();
+
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		printf("hDevice == INVALID_HANDLE_VALUE\n");
+		return false;
+	}
+
+	DWORD	returnLen;
+	BOOL result = DeviceIoControl(
+		hDevice,
+		IOCTL_DECODE_DLL,
+		in,
+		size,
+		out,
+		size,
+		&returnLen,
+		NULL);
+
+	CloseHandle(hDevice);
+	return true;
+}
+
+// 加密字符串
+bool Driver::EncodeStr(BYTE* in, BYTE* out, DWORD size)
+{
+	HANDLE hDevice = ConnectDriver();
+
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		printf("hDevice == INVALID_HANDLE_VALUE\n");
+		return false;
+	}
+
+	DWORD	returnLen;
+	BOOL result = DeviceIoControl(
+		hDevice,
+		IOCTL_ENCODE_STR,
+		in,
+		size,
+		out,
+		size,
+		&returnLen,
+		NULL);
+
+	CloseHandle(hDevice);
+	return true;
+}
+
+// 解密字符串
+bool Driver::DecodeStr(BYTE* in, BYTE* out, DWORD size)
+{
+	HANDLE hDevice = ConnectDriver();
+
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		printf("hDevice == INVALID_HANDLE_VALUE\n");
+		return false;
+	}
+
+	DWORD	returnLen;
+	BOOL result = DeviceIoControl(
+		hDevice,
+		IOCTL_DECODE_STR,
+		in,
+		size,
+		out,
+		size,
+		&returnLen,
+		NULL);
+
+	CloseHandle(hDevice);
+	return true;
+}
+
+// 获取加密解密滴答数
+DWORD Driver::GetEnDeStrTickCount()
+{
+	HANDLE hDevice = ConnectDriver();
+
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		printf("hDevice == INVALID_HANDLE_VALUE\n");
+		return false;
+	}
+
+	DWORD in;
+	DWORD tickcount = 0;
+	DWORD	returnLen;
+	BOOL result = DeviceIoControl(
+		hDevice,
+		IOCTL_ENDESTR_TICKCOUNT,
+		&in,
+		sizeof(in),
+		&tickcount,
+		sizeof(tickcount),
+		&returnLen,
+		NULL);
+
+	CloseHandle(hDevice);
+	return tickcount;
+}
+
+// 连接到驱动式
+HANDLE Driver::ConnectDriver()
+{
+	return CreateFileA("\\\\.\\ldNews", NULL, NULL, NULL, OPEN_EXISTING, NULL, NULL);
 }
 
 // 蓝屏
@@ -698,7 +818,7 @@ _unstall_:
 	if (NULL == schManager)
 		return false;
 
-	schService = OpenService(schManager, name, SERVICE_ALL_ACCESS);
+	schService = OpenServiceW(schManager, name, SERVICE_ALL_ACCESS);
 	if (NULL == schService) {
 		LOG2(L"NULL == schService", "red");
 		CloseServiceHandle(schManager);

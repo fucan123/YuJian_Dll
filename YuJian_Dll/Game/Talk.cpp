@@ -143,7 +143,7 @@ bool Talk::TalkBtnIsOpen()
 bool Talk::GetSelectClickPos(const char* name, int& click_x, int& click_y, HWND pic)
 {
 	int x = 50, y = 0;
-	int x2 = 200, y2 = 0;
+	int x2 = 150, y2 = 0;
 
 	if (strcmp(name, "钥匙开启入口") == 0) {
 		y = 127, y2 = 132;
@@ -276,6 +276,12 @@ bool Talk::GetSelectClickPos(const char* name, int& click_x, int& click_y, HWND 
 	}
 	else if (strcmp(name, "卖东西.首饰商") == 0) {
 		y = 130, y2 = 135;
+	}
+	else if (strcmp(name, "活动.全部直接合成+1或+2") == 0) {
+		y = 230, y2 = 233;
+	}
+	else if (strcmp(name, "活动.全部直接合成+1或+2.确定") == 0) {
+		y = 130, y2 = 133;
 	}
 
 	click_x = MyRand(x, x2);

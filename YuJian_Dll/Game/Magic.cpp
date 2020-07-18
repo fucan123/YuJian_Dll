@@ -131,6 +131,7 @@ void Magic::UseGongJiFu()
 bool Magic::UseShenZunTianJiang(const char* map)
 {
 	wchar_t log[64];
+	DbgPrint("传送到:%s\n", map);
 	LOGVARP2(log, "c0 b", L"传送到:%hs", map);
 
 	HWND game = m_pGame->m_pGameProc->m_pAccount->Wnd.Game;
@@ -157,10 +158,12 @@ bool Magic::UseShenZunTianJiang(const char* map)
 			qy = MyRand(350, 360);
 		}
 		else {
+			DbgPrint("没有此区域:%s\n", map);
 			LOGVARP2(log, "red", L"没有此区域:%hs", map);
 			return false;
 		}
 
+		DbgPrint("使用神尊天降.\n");
 		LOG2(L"使用神尊天降.", "c3");
 		m_pGame->m_pButton->Key(VK_F8);
 		while (true) {
@@ -170,29 +173,35 @@ bool Magic::UseShenZunTianJiang(const char* map)
 				break;
 		}
 
-		Sleep(1000);
+		Sleep(2000);
+		DbgPrint("传送到人界.\n");
 		LOG2(L"传送到人界.", "c3");
 		m_pGame->m_pButton->ClickPic(game, pic, MyRand(450, 600), MyRand(260, 360), 100); // 450,260 660,360 人界
-		Sleep(1000);
+		Sleep(2000);
+		DbgPrint("点击区域位置:%d,%d\n", x, y);
 		LOGVARP2(log, "c3", L"点击区域位置:%d,%d", x, y);
 		m_pGame->m_pButton->ClickPic(game, pic, x, y, 100);
-		Sleep(1000);
+		Sleep(2000);
+		DbgPrint("点击传送图标.\n");
 		LOG2(L"点击传送图标.", "c3");
 		m_pGame->m_pButton->ClickPic(game, pic, MyRand(1170, 1172), MyRand(625, 630), 500); // 1170,616 1180,630 神尊天降图标
-		Sleep(500);
+		Sleep(800);
+		DbgPrint("确定传送位置:%d,%d\n", qx, qy);
 		LOGVARP2(log, "c3", L"确定传送位置:%d,%d", qx, qy);
 		m_pGame->m_pButton->ClickPic(game, pic, qx, qy, 100); // 地图下面
-		Sleep(500);
+		Sleep(800);
 
 		for (int i = 0; i < 5; i++) {
 			if (m_pGame->m_pButton->CheckButton(game, BUTTON_ID_CANCEL, "取消")) {
 				if (m_pGame->m_pGameProc->CloseTipBox()) {
+					DbgPrint("确定此传送.\n");
 					LOG2(L"确定此传送.", "c0 b");
 					m_pGame->m_pGameProc->Wait(10 * 1000);
 					
 					DWORD now_x, now_y;
 					m_pGame->m_pGameData->ReadCoor(&now_x, &now_y, m_pGame->m_pGameProc->m_pAccount);
 					if (now_x == pos_x && now_y == pos_y) {
+						DbgPrint("传送失败, 重新传送.\n");
 						LOG2(L"传送失败, 重新传送.", "red b");
 						goto _start_;
 					}

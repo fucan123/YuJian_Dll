@@ -10,11 +10,10 @@
 #define P2DW(v) (*(DWORD*)(v))       // 转成DWORD数值
 #define P2INT(v) (*(int*)(v))        // 转成int数值
 
-#if 0
-#define DbgPrint(...) ::printf(__VA_ARGS__)
-#else
+#define ISCMD 1
+
+#if ISCMD == 0
 #define DbgPrint(...)
-#endif
 
 #define LOG(v) m_pGame->AddUILog(v,nullptr)
 #define LOGVARP(p,...) { wsprintfW(p,__VA_ARGS__);LOG(p); }
@@ -22,6 +21,16 @@
 #define LOG2(v,cla) m_pGame->AddUILog(v,cla)
 #define LOGVARP2(p,cla,...) { wsprintfW(p,__VA_ARGS__);LOG2(p,cla); }
 #define LOGVARN2(n,cla,...) {wchar_t _s[n]; _s[n-1]=0; LOGVARP2(_s,cla,__VA_ARGS__); }
+#else
+#define DbgPrint(...) ::printf(__VA_ARGS__)
+
+#define LOG(v)
+#define LOGVARP(p,...)
+#define LOGVARN(n,...)
+#define LOG2(v,cla)
+#define LOGVARP2(p,cla,...)
+#define LOGVARN2(n,cla,...)
+#endif
 
 #define MAKESPOS(v) (int(v/m_fScale))
 

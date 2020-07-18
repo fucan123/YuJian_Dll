@@ -249,7 +249,7 @@ void GameStep::SetConsoleTle(const char* cmd)
 	else {
 		sprintf_s(console_title, "正在使用流程文件:%s 执行步骤:%s\n", m_chStepFiles[index], cmd);
 	}
-	SetConsoleTitleA(console_title);
+	//SetConsoleTitleA(console_title);
 }
 
 // 随机选择步骤文件
@@ -294,7 +294,7 @@ bool GameStep::InitSteps(const char* path, const char* file)
 	char fb_file[255];
 	sprintf_s(fb_file, "%s\\%s", path, file);
 	
-	printf("刷副本流程文件:%s\n", fb_file);
+	//printf("刷副本流程文件:%s\n", fb_file);
 	OpenTextFile hfile;
 	if (!hfile.Open(fb_file)) {
 		printf("找不到'%s'文件！！！", fb_file);

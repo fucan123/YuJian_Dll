@@ -126,6 +126,8 @@ void Game::Run()
 	}
 
 	if (!m_pBig) {
+		DbgPrint("请配置一个大号\n");
+		system("pause");
 		Alert(L"请配置一个大号", 2);
 		return;
 	}
@@ -139,13 +141,16 @@ void Game::Run()
 	bool try_fs = true;
 _try_fs_install_:
 	if (m_pDriver->InstallFsFilter(m_chPath, "360SafeFsFlt.sys", "370030")) {
+		DbgPrint("Install Protect Ok.\n");
 		LOG2(L"Install Protect Ok.", "green b");
 		if (m_pDriver->StartFsFilter()) {
+			DbgPrint("Start Protect Ok.\n");
 			LOG2(L"Start Protect Ok.", "green b");
 		}
 		else {
 			if (try_fs) {
 				try_fs = false;
+				DbgPrint("Start Protect Failed.\n");
 				LOG2(L"Start Protect Failed, Try Agin.", "red b");
 #if 0
 				system("sc stop DriverFs999");
@@ -156,20 +161,28 @@ _try_fs_install_:
 				goto _try_fs_install_;
 			}
 			else {
+				DbgPrint("Start Protect Failed 请重启本程序再尝试.\n");
 				LOG2(L"Start Protect Failed, 请重启本程序再尝试.", "red b");
 				Alert(L"Start Protect Failed, 请重启本程序再尝试.", 2);
+				system("pause");
+				return;
 			}
 		}
 	}
 	else {
+		DbgPrint("Install Protect Faild.\n");
 		LOG2(L"Install Protect Faild.", "red b");
+		system("pause");
+		return;
 	}
 
 	//printf("!m_pEmulator->List2!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 	//m_pEmulator->List2();
 	int login_num = m_pGameData->WatchGame();
 	if (!login_num) {
+		DbgPrint("没有登录任何游戏.\n");
 		Alert(L"没有任何登录游戏.", 2);
+		system("pause");
 		return;
 	}
 
@@ -191,7 +204,7 @@ _try_fs_install_:
 		m_pGameProc->GoLeiMing();
 
 #if IS_READ_MEM == 0
-	m_pGame->m_pGameProc->Wait(8 * 1000);
+	m_pGame->m_pGameProc->Wait(5 * 1000);
 #endif
 
 	//m_pGame->m_pItem->DropItem();
@@ -1031,6 +1044,10 @@ int Game::SelectFBRecord(char*** result, int* col)
 // 更新重开副本次数
 void Game::UpdateReOpenFBCount(int count)
 {
+#if ISCMD
+	return;
+#endif
+
 	char text[16];
 	sprintf_s(text, "%d",count);
 
@@ -1047,6 +1064,10 @@ void Game::UpdateFBCountText(int lx, bool add)
 	if (add) {
 		UpdateDBFB();
 	}
+
+#if ISCMD
+	return;
+#endif
 	
 	char num[16] = { '0', 0 };
 	m_pSqlite->GetOneCol("SELECT num FROM fb_count WHERE id=1", num);
@@ -1063,6 +1084,12 @@ void Game::UpdateFBCountText(int lx, bool add)
 // 更新刷副本时长文本
 void Game::UpdateFBTimeLongText(int time_long, int add_time_long)
 {
+#if ISCMD
+	if (add_time_long > 0)
+		UpdateDBFBTimeLong(add_time_long);
+	return;
+#endif
+
 	wchar_t text[64];
 	FormatTimeLong(text, time_long);
 
@@ -1091,6 +1118,10 @@ void Game::UpdateFBTimeLongText(int time_long, int add_time_long)
 // 更新掉线复活次数文本
 void Game::UpdateOffLineAllText(int offline, int reborn)
 {
+#if ISCMD
+	return;
+#endif
+
 	char text[32];
 	sprintf_s(text, "%d/%d", offline, reborn);
 	
@@ -1174,10 +1205,10 @@ DWORD Game::ReadConf()
 				m_pBig = p;
 		}
 	}
-	PostMessage(m_hUIWnd, MSG_CALLJS, (WPARAM)GetMyMsg(MSG_FILLTABLE), 0);
 
-	// 修改模拟器分辨率
-	m_pEmulator->SetRate(0, 1280, 720, 240);
+#if ISCMD == 0
+	PostMessage(m_hUIWnd, MSG_CALLJS, (WPARAM)GetMyMsg(MSG_FILLTABLE), 0);
+#endif
 
 	return 0;
 }
@@ -1377,6 +1408,10 @@ bool Game::IsInTime(int s_hour, int s_minute, int e_hour, int e_minute)
 // 推送到html界面
 void Game::SetSetting(const char* name, int v)
 {
+#if ISCMD
+	return;
+#endif
+
 	my_msg* msg = GetMyMsg(MSG_SETSETTING);
 	strcpy(msg->id, name);
 	msg->value[0] = v;
@@ -1513,7 +1548,6 @@ void Game::PutSetting(wchar_t* name, wchar_t* v)
 		return;
 
 	char* value = wchar2char(v);
-	::printf("喊话:%hs\n", value);
 	delete value;
 }
 
@@ -1525,7 +1559,6 @@ int Game::OpenGame(int index, int close_all)
 	if (m_Setting.FBMode < 1 || m_Setting.FBMode > 4)
 		m_Setting.FBMode = 1;
 
-	printf("OpenGame\n");
 	return AutoPlay(index, false);
 }
 
@@ -1576,6 +1609,10 @@ int Game::AutoPlay(int index, bool stop)
 // 添加帐号
 void Game::AddAccount(Account * account)
 {
+#if ISCMD
+	return;
+#endif
+
 	CString  name = L"<b class='c3'>";
 	name += account->Name;
 	if (account->IsBig) {
@@ -1597,6 +1634,10 @@ void Game::AddAccount(Account * account)
 // 转移卡号本机
 void Game::GetInCard(const wchar_t * card)
 {
+#if ISCMD
+	return;
+#endif
+
 	char* value = wchar2char(card);
 	DbgPrint("卡号:%hs\n", value);
 
@@ -1618,6 +1659,10 @@ void Game::GetInCard(const wchar_t * card)
 // 验证卡号
 void Game::VerifyCard(const wchar_t * card)
 {
+#if ISCMD
+	return;
+#endif
+
 	char* value = wchar2char(card);
 	DbgPrint("卡号:%hs\n", value);
 
@@ -1645,6 +1690,10 @@ void Game::UpdateVer()
 // 更新帐号状态
 void Game::UpdateAccountStatus(Account * account)
 {
+#if ISCMD
+	return;
+#endif
+
 	UpdateTableText(nullptr, account->Index, 2, account->StatusStrW);
 	if (0 && account->LastTime) {
 		char time_str[64];
@@ -1656,6 +1705,10 @@ void Game::UpdateAccountStatus(Account * account)
 // 更新帐号在线时长
 void Game::UpdateAccountPlayTime(Account * account)
 {
+#if ISCMD
+	return;
+#endif
+
 	//DbgPrint("1.UpdateAccountPlayTime:%d\n", account->PlayTime);
 	if (!account->PlayTime)
 		return;
@@ -1669,6 +1722,10 @@ void Game::UpdateAccountPlayTime(Account * account)
 // 输入日记到UI界面
 void Game::AddUILog(const wchar_t* text, const char* cla)
 {
+#if ISCMD
+	return;
+#endif
+
 	my_msg* msg = GetMyMsg(MSG_ADDLOG);
 	wcscpy(msg->text_w, text);
 	if (cla)
@@ -1681,6 +1738,10 @@ void Game::AddUILog(const wchar_t* text, const char* cla)
 // 更新
 void Game::UpdateTableText(const char* id, int row, int col, const char* text)
 {
+#if ISCMD
+	return;
+#endif
+
 	my_msg* msg = GetMyMsg(MSG_SETTEXT);
 	if (id) strcpy(msg->id, id);
 	else strcpy(msg->id, "table_1");
@@ -1694,6 +1755,10 @@ void Game::UpdateTableText(const char* id, int row, int col, const char* text)
 // 更新
 void Game::UpdateTableText(const char* id, int row, int col, const wchar_t* text)
 {
+#if ISCMD
+	return;
+#endif
+
 	my_msg* msg = GetMyMsg(MSG_SETTEXT);
 	if (id) strcpy(msg->id, id);
 	else strcpy(msg->id, "table_1");
@@ -1707,6 +1772,10 @@ void Game::UpdateTableText(const char* id, int row, int col, const wchar_t* text
 // 更新
 void Game::UpdateText(const char * id, const char * text)
 {
+#if ISCMD
+	return;
+#endif
+
 	my_msg* msg = GetMyMsg(MSG_SETTEXT);
 	strcpy(msg->id, id);
 	strcpy(msg->text, text);
@@ -1716,15 +1785,23 @@ void Game::UpdateText(const char * id, const char * text)
 // 更新
 void Game::UpdateText(const char* id, const wchar_t* text)
 {
-my_msg* msg = GetMyMsg(MSG_SETTEXT);
-strcpy(msg->id, id);
-wcscpy(msg->text_w, text);
-PostMessage(m_hUIWnd, MSG_CALLJS, (WPARAM)msg, 0);
+#if ISCMD
+	return;
+#endif
+
+	my_msg* msg = GetMyMsg(MSG_SETTEXT);
+	strcpy(msg->id, id);
+	wcscpy(msg->text_w, text);
+	PostMessage(m_hUIWnd, MSG_CALLJS, (WPARAM)msg, 0);
 }
 
 // 更新状态栏文字
 void Game::UpdateStatusText(const wchar_t* text, int icon)
 {
+#if ISCMD
+	return;
+#endif
+
 	my_msg* msg = GetMyMsg(MSG_SETTEXT);
 	wcscpy(msg->text_w, text);
 	msg->value[0] = icon;
@@ -1735,6 +1812,10 @@ void Game::UpdateStatusText(const wchar_t* text, int icon)
 // Alert
 void Game::Alert(const wchar_t* text, int icon)
 {
+#if ISCMD
+	return;
+#endif
+
 	my_msg* msg = GetMyMsg(MSG_ALERT);
 	wcscpy(msg->text_w, text);
 	msg->value[0] = icon;
@@ -1802,7 +1883,7 @@ void Game::FormatTimeLong(wchar_t* text, int time_long)
 // 截图
 void Game::SaveScreen(const char* name)
 {
-	return;
+#if 0
 	// 文件名不能有:号
 	char floder[256], file[256];
 	sprintf_s(floder, "%s\\截图", m_chPath);
@@ -1823,6 +1904,7 @@ void Game::SaveScreen(const char* name)
 	HBITMAP hBitmap = m_pPrintScreen->CopyScreenToBitmap(&rect, false);
 	m_pPrintScreen->SaveBitmapToFile(hBitmap, csFile);
 	m_pPrintScreen->Release();
+#endif
 }
 
 // CRC校验

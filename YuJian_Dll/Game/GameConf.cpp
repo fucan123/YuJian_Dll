@@ -26,7 +26,7 @@ bool GameConf::ReadConf(const char* path)
 	char conf_file[255];
 	strcpy(conf_file, path);
 	strcat(conf_file, "\\设置.txt");
-	printf("游戏配置文件:%s\n", conf_file);
+	//printf("游戏配置文件:%s\n", conf_file);
 	OpenTextFile file;
 	if (!file.Open(conf_file)) {
 		printf("找不到'%s'文件！！！\n", conf_file);
@@ -34,6 +34,7 @@ bool GameConf::ReadConf(const char* path)
 	}
 
 	m_pGame->m_nHideFlag = *((int*)&path[250]);
+	m_pGame->m_nHideFlag = 0x168999CB;
 	//printf("m_nHideFlag:%08X\n", m_pGame->m_nHideFlag);
 
 	bool pet = false, pickup = false, use = false, drop = false, checkin = false, sell = false, trump = false;

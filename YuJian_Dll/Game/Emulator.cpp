@@ -226,6 +226,7 @@ MNQ* Emulator::Close(int index)
 // 关闭所有模拟器
 void Emulator::CloseAll()
 {
+#if 0
 	int i, count = List2();
 	for (i = 0; i < count; i++) {
 		Close(i);
@@ -238,6 +239,7 @@ void Emulator::CloseAll()
 		::TerminateProcess(handle, 4);
 		CloseHandle(handle);
 	}
+#endif
 }
 
 // 启动游戏

@@ -5,6 +5,7 @@
 
 //#define HOME_HOST      L"39.100.110.77"
 #define HOME_HOST      L"fz.myhostcpp.com"
+//#define HOME_HOST      L"www.fuzhu.com"
 #define HOME_GAME_FLAG "1"
 #define JIAOYAN_V      16899
 
@@ -43,6 +44,8 @@ public:
 	int  GetExpire();
 	// 解析返回结果
 	void Parse(const char* msg);
+	// 解析返回结果
+	void Parse_N(const char* msg);
 	// 获得返回结果中的值
 	bool GetValue(char* key, char value[], int length);
 	// 获得返回结果中的值
@@ -75,6 +78,9 @@ public:
 
 	// 是否有效
 	bool IsValid2();
+
+	int HexToInt(const char* str, int length);
+	void CharToHext(char* save, char* str, int length);
 public:
 	Game* m_pGame;
 
