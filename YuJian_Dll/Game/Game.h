@@ -256,6 +256,8 @@ public:
 	// 查询副本记录
 	int SelectFBRecord(char*** result, int* col);
 
+	// 获取教学数量
+	int GetfbCount();
 	// 更新重开副本次数
 	void UpdateReOpenFBCount(int count);
 	// 更新刷副本次数文本
@@ -303,9 +305,12 @@ public:
 	// 转移卡号本机
 	void GetInCard(const wchar_t* card);
 	// 验证卡号
-	void VerifyCard(const wchar_t* card);
+	void VerifyCard(const wchar_t* card, const wchar_t* remark);
 	// 更新程序版本
 	void UpdateVer();
+
+	// mmm
+	bool CheckGameOtherModule();
 
 	// 更新帐号状态
 	void UpdateAccountStatus(Account * account);

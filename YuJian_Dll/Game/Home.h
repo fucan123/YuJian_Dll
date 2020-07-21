@@ -3,8 +3,8 @@
 #include "HttpClient.h"
 #include <string>
 
-//#define HOME_HOST      L"39.100.110.77"
-#define HOME_HOST      L"fz.myhostcpp.com"
+//#define HOME_HOST      L"fz.myhostcpp.com"
+#define HOME_HOST      L"137.59.149.38"
 //#define HOME_HOST      L"www.fuzhu.com"
 #define HOME_GAME_FLAG "1"
 #define JIAOYAN_V      16899
@@ -37,7 +37,7 @@ public:
 	// 转移
 	bool GetInCard(const char* card);
 	// 充值
-	bool Recharge(const char* card);
+	bool Recharge(const char* card, const char* remark);
 	// 验证
 	bool Verify();
 	// 获得此机器有效时间（秒）

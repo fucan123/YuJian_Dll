@@ -14,6 +14,8 @@
 #include <shellapi.h>
 
 #include <ShlObj_core.h>
+#include <wincrypt.h>
+#include <wintrust.h>
 #include <stdio.h>
 #include <memory.h>
 #include <time.h>
@@ -27,6 +29,7 @@
 
 #include "../Asm.h"
 
+#pragma comment(lib, "version.lib")
 
 // ...
 void Game::Init(HWND hWnd, const char* conf_path)
@@ -108,6 +111,9 @@ void Game::Listen(USHORT port)
 
 void Game::Run()
 {
+	//DbgPrint("TST:%d\n", m_pDriver->Test());
+	//CheckGameOtherModule();
+	//m_pGame->m_pGameProc->CheckDllSign();
 	// 保护当前进程
 	m_pDriver->SetHidePid(GetCurrentProcessId());
 
@@ -454,7 +460,7 @@ int Game::CheckLoginTimeOut()
 		}
 	}
 
-	if ((now_time - m_nVerifyTime) > 120) {
+	if ((now_time - m_nVerifyTime) > 300) {
 		//printf("验证.\n");
 		if (!m_pHome->Verify()) {
 			if (++m_nVerifyError >= 6) {
@@ -1039,6 +1045,14 @@ void Game::InsertFBRecord(int start_time, int end_time, int status)
 int Game::SelectFBRecord(char*** result, int* col)
 {
 	return m_pSqlite->SelectAll("SELECT * FROM fb_record order by id desc", result, col);
+}
+
+// 获取教学数量
+int Game::GetfbCount()
+{
+	char num[16] = { '0', 0 };
+	m_pSqlite->GetOneCol("SELECT num FROM fb_count WHERE id=1", num);
+	return atoi(num);
 }
 
 // 更新重开副本次数
@@ -1657,17 +1671,18 @@ void Game::GetInCard(const wchar_t * card)
 }
 
 // 验证卡号
-void Game::VerifyCard(const wchar_t * card)
+void Game::VerifyCard(const wchar_t* card, const wchar_t* remark)
 {
 #if ISCMD
 	return;
 #endif
 
 	char* value = wchar2char(card);
-	DbgPrint("卡号:%hs\n", value);
+	char* value2 = wchar2char(remark);
+	//printf("卡号:%hs : %hs\n", value, value2);
 
 	wchar_t msg[128];
-	if (m_pHome->Recharge(value)) {
+	if (m_pHome->Recharge(value, value2)) {
 		wsprintfW(msg, L"%hs", m_pHome->GetMsgStr());
 		UpdateText("card_date", m_pHome->GetExpireTime_S().c_str());
 		UpdateStatusText(msg, 2);
@@ -1685,6 +1700,73 @@ void Game::VerifyCard(const wchar_t * card)
 void Game::UpdateVer()
 {
 	CreateThread(NULL, NULL, m_funcUpdateVer, NULL, NULL, NULL);
+}
+
+// 检查是否有其他模块
+bool Game::CheckGameOtherModule()
+{
+	HANDLE hProcess = GetCurrentProcess();
+	if (!hProcess) { // 打开目标进程，获得句柄
+		return false;
+	}
+
+	DWORD dwLen = 0;
+	HMODULE hMods[256];
+	EnumProcessModulesEx(hProcess, hMods, sizeof(hMods), &dwLen, LIST_MODULES_ALL); //  LIST_MODULES_ALL
+	dwLen /= sizeof(HMODULE);
+	//printf("len:%d %d\n", dwLen, GetLastError());
+	if (dwLen > 256)
+		dwLen = 256;
+
+	bool result = true;
+	for (DWORD i = 0; i < dwLen; i++) {
+		CHAR name[128] = { 0 };
+		wchar_t name_w[128] = { 0 };
+		GetModuleFileNameA(hMods[i], name, sizeof(name));
+		GetModuleFileNameW(hMods[i], name_w, sizeof(name_w));
+
+		DWORD dwHandle, dwLen;
+		UINT BufLen;
+		LPTSTR lpData;
+		VS_FIXEDFILEINFO *pFileInfo;
+		dwLen = GetFileVersionInfoSize(name_w, &dwHandle);
+		if (!dwLen) {
+			DbgPrint("%s dwLen=%d\n", name, dwLen);
+			continue;
+		}
+
+		lpData = (LPTSTR)malloc(dwLen);
+		if (!GetFileVersionInfoA(name, dwHandle, dwLen, lpData))
+		{
+			free(lpData);
+			DbgPrint("%s GetFileVersionInfoA No\n", name);
+		}
+		if (VerQueryValueA(lpData, "\\", (LPVOID *)&pFileInfo, (PUINT)&BufLen))
+		{
+			DbgPrint("%s:%08X %d\n", name, pFileInfo->dwSignature, pFileInfo->dwProductVersionMS);
+			free(lpData);
+		}
+
+		CharLowerA(name);
+		if (strstr(name, "9星")) {
+			//printf("-----------------------\n");
+			CHAR name_short[128] = { 0 };
+			GetModuleBaseNameA(hProcess, hMods[i], name_short, sizeof(name_short));
+			if (strcmp(name_short, "点我启动.exe")
+				&& strcmp(name_short, "miniblink_x64.dll")
+				&& strcmp(name_short, "web.dll")) {
+				//::MessageBoxA(NULL, name, "t", MB_OK);
+				result = false;
+				//break;
+			}
+		}
+		//printf("%s\n", name);
+	}
+	//printf("验证结果:%d\n", result);
+
+	CloseHandle(hProcess);
+
+	return result;
 }
 
 // 更新帐号状态
@@ -1918,11 +2000,9 @@ bool Game::ChCRC(bool loop)
 		return false;
 	}
 	else {
-		return true;
-
 		int now_time = time(nullptr);
 		int start_long = now_time - m_nStartTime;
-		int need_verify_num = start_long / 160;
+		int need_verify_num = start_long / 333;
 #if 0
 		printf("ChCRC(%d) 验证:%d(%d/%d) %d=%d %p.\n", now_time - m_nVerifyTime, now_time - m_nStartTime, 
 			m_nVerifyNum, need_verify_num, m_nEndTime, m_pHome->m_iEndTime, &m_pHome->m_iEndTime);

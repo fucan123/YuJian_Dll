@@ -198,7 +198,7 @@ bool GameData::IsInFBDoor(_account_* account)
 bool GameData::FindQuickAddr()
 {
 	m_pGame->WriteLog("FindQuickAddr.\n");
-	DbgPrint("FindQuickAddr.\n");
+	//DbgPrint("FindQuickAddr.\n");
 	// 4:0xCA000000 4:0xCA000000 4:0xCA000000 4:0x01 4:0x00 4:0x00 4:0x136 4:0x20
 	DWORD codes[] = {
 		0xCA000000, 0xCA000000, 0xCA000000, 0x00000001,
@@ -213,10 +213,12 @@ bool GameData::FindQuickAddr()
 		ReadProcessMemory(m_hGameProcess, (PVOID)type_addr, &type, sizeof(type), &readlen);
 		if (type == 0x02020202) {
 			m_DataAddr.QuickMagicNum = address + 0x20;
+			DbgPrint("(%s)技能快捷栏数量:%08X\n", m_pAccountTmp->Name, m_DataAddr.QuickMagicNum);
 			LOGVARN2(64, "blue", L"(%hs)技能快捷栏数量:%08X", m_pAccountTmp->Name, m_DataAddr.QuickMagicNum);
 		}
 		else {
 			m_DataAddr.QuickItemNum = address + 0x20;
+			DbgPrint("(%s)物品快捷栏数量:%08X\n", m_pAccountTmp->Name, m_DataAddr.QuickItemNum);
 			LOGVARN2(64, "blue", L"(%hs)物品快捷栏数量:%08X", m_pAccountTmp->Name, m_DataAddr.QuickItemNum);
 		}
 		m_pGame->WriteLog("FindQuickAddr Success p.\n");
@@ -229,7 +231,7 @@ bool GameData::FindQuickAddr()
 bool GameData::FindLifeAddr()
 {
 	m_pGame->WriteLog("FindLifeAddr.\n");
-	DbgPrint("FindLifeAddr.\n");
+	//DbgPrint("FindLifeAddr.\n");
 	// 4:0x00 4:0x00 4:* 4:0x03 4:0x0A 4:0x18 4:0x29 4:0x00
 	DWORD codes[] = {
 		0x00000003, 0x0000000A, 0x00000018, 0x00000029, 0x00000000,
@@ -237,6 +239,7 @@ bool GameData::FindLifeAddr()
 	DWORD address = 0;
 	if (SearchCode(codes, sizeof(codes) / sizeof(DWORD), &address, 1, 1)) {
 		m_DataAddr.Life = address + 0x18;
+		DbgPrint("(%s)血量地址:%08X\n", m_pAccountTmp->Name, m_DataAddr.Life);
 		LOGVARN2(64, "blue", L"(%hs)血量地址:%08X", m_pAccountTmp->Name, m_DataAddr.Life);
 	}
 	return address > 0;
@@ -246,7 +249,6 @@ bool GameData::FindLifeAddr()
 bool GameData::FindBagAddr()
 {
 	m_pGame->WriteLog("FindBagAddr.\n");
-	DbgPrint("FindBagAddr.\n");
 	DWORD codes[] = {
 		0x00000022, 0x00000022, 0x00000A04, 0x00000005,
 		0x00000005, 0x00001E1E, 0x00000022, 0x00000022,
@@ -254,8 +256,7 @@ bool GameData::FindBagAddr()
 	DWORD address = 0;
 	if (SearchCode(codes, sizeof(codes) / sizeof(DWORD), &address)) {
 		m_DataAddr.Bag = address + 0x40;
-
-		DbgPrint("(%hs)背包物品地址:%08X\n", m_pAccountTmp->Name, m_DataAddr.Bag);
+		DbgPrint("(%s)背包物品地址:%08X\n", m_pAccountTmp->Name, m_DataAddr.Bag);
 		LOGVARN2(64, "blue", L"(%hs)背包物品地址:%08X", m_pAccountTmp->Name, m_DataAddr.Bag);
 	}
 
@@ -266,7 +267,6 @@ bool GameData::FindBagAddr()
 bool GameData::FindStorageAddr()
 {
 	m_pGame->WriteLog("FindStorageAddr.\n");
-	DbgPrint("FindStorageAddr.\n");
 	DWORD codes[] = {
 		0x00000022, 0x00000022, 0x00000A06, 0x00000004,
 		0x00000004, 0x00001F1F, 0x00000022, 0x00000022,
@@ -275,7 +275,7 @@ bool GameData::FindStorageAddr()
 	if (SearchCode(codes, sizeof(codes) / sizeof(DWORD), &address)) {
 		m_DataAddr.Storage = address + 0x40;
 
-		DbgPrint("(%hs)仓库物品地址:%08X\n", m_pAccountTmp->Name, m_DataAddr.Storage);
+		DbgPrint("(%s)仓库物品地址:%08X\n", m_pAccountTmp->Name, m_DataAddr.Storage);
 		LOGVARN2(64, "blue", L"(%hs)仓库物品地址:%08X", m_pAccountTmp->Name, m_DataAddr.Storage);
 	}
 
@@ -286,7 +286,6 @@ bool GameData::FindStorageAddr()
 bool GameData::FindScreenPos()
 {
 	m_pGame->WriteLog("FindScreenPos.\n");
-	DbgPrint("FindScreenPos.\n");
 	// 4:0x0002080E 4:0x00077B1B 4:0x00000000 4:0x00000000 4:0x00000000 4:0x00000000 4:0x00095E98 4:0x00000000
 	// 4:0x00020804 4:0x00077B0E 4:0x00000000 4:0x00000000 4:0x00000000 4:0x00000000 4:0x00000000 4:0x00000000
 	DWORD codes[] = { // WIN10
@@ -309,7 +308,7 @@ bool GameData::FindScreenPos()
 			m_DataAddr.ScreenX = address - 0x60;
 			m_DataAddr.ScreenY = m_DataAddr.ScreenX + 4;
 
-			DbgPrint("(%hs)人物屏幕地址:%08X\n", m_pAccountTmp->Name, m_DataAddr.ScreenX);
+			DbgPrint("(%s)人物屏幕地址:%08X\n", m_pAccountTmp->Name, m_DataAddr.ScreenX);
 			LOGVARN2(64, "blue", L"(%hs)人物屏幕地址:%08X", m_pAccountTmp->Name, m_DataAddr.ScreenX);
 		}
 	}
@@ -451,10 +450,6 @@ DWORD GameData::SearchCode(DWORD* codes, DWORD length, DWORD* save, DWORD save_l
 	if (length == 0 || save_length == 0)
 		return 0;
 
-	char log[256];
-	sprintf_s(log, "SearchCode:%08X(%08X)\n", m_dwReadBase, m_dwReadSize);
-	DbgPrint(log);
-	m_pGame->WriteLog(log);
 	DWORD count = 0;
 	for (DWORD i = 0; i < m_dwReadSize; i += step) {
 		if ((i + length) > m_dwReadSize)

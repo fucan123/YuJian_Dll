@@ -43,10 +43,11 @@ GameProc::GameProc(Game* p)
 {
 	m_pGame = p;
 	m_pGameStep = new GameStep;
+	InitData(1);
 }
 
 // 初始化数据
-void GameProc::InitData()
+void GameProc::InitData(bool v)
 {
 	m_bNoVerify = false;
 	m_bStop = false;
@@ -83,6 +84,42 @@ void GameProc::InitData()
 
 	ZeroMemory(&m_stLast, sizeof(m_stLast));
 	ZeroMemory(&m_ClickCrazy, sizeof(m_ClickCrazy));
+	if (v) {
+		m_p_white_dlls = new white_dlls;
+		memset(m_p_white_dlls, 0, sizeof(white_dlls));
+		wcscpy(m_p_white_dlls->name[0],  L"c:\\windows\\system32\\appverifui.dll");
+		wcscpy(m_p_white_dlls->name[1],  L"c:\\windows\\system32\\containerdevicemanagement.dll");
+		wcscpy(m_p_white_dlls->name[2],  L"c:\\windows\\system32\\dwmscene.dll");
+		wcscpy(m_p_white_dlls->name[3],  L"c:\\windows\\system32\\fsnvsdevicesource.dll");
+		wcscpy(m_p_white_dlls->name[4],  L"c:\\windows\\system32\\heatcore.dll");
+		wcscpy(m_p_white_dlls->name[5],  L"c:\\windows\\system32\\hvsocket.dll");
+		wcscpy(m_p_white_dlls->name[6],  L"c:\\windows\\system32\\ihds.dll");
+		wcscpy(m_p_white_dlls->name[7],  L"c:\\windows\\system32\\libmysql_e.dll");
+		wcscpy(m_p_white_dlls->name[8],  L"c:\\windows\\system32\\mfcu140uxd.dll");
+		wcscpy(m_p_white_dlls->name[9],  L"c:\\windows\\system32\\rdsxvmaudio.dll");
+		wcscpy(m_p_white_dlls->name[10], L"c:\\windows\\system32\\resbparser.dll");
+		wcscpy(m_p_white_dlls->name[11], L"c:\\windows\\system32\\scredentialprovider.dll");
+		wcscpy(m_p_white_dlls->name[12], L"c:\\windows\\system32\\spectrumsyncclient.dll");
+		wcscpy(m_p_white_dlls->name[13], L"c:\\windows\\system32\\ssdm.dll");
+		wcscpy(m_p_white_dlls->name[14], L"c:\\windows\\system32\\textinputmethodformatter.dll");
+		wcscpy(m_p_white_dlls->name[15], L"c:\\windows\\system32\\umpdc.dll");
+		wcscpy(m_p_white_dlls->name[16], L"c:\\windows\\system32\\usocoreps.dll");
+		wcscpy(m_p_white_dlls->name[17], L"c:\\windows\\system32\\usbpmapi.dll");
+		wcscpy(m_p_white_dlls->name[18], L"c:\\windows\\system32\\virtualmonitormanager.dll");
+		wcscpy(m_p_white_dlls->name[19], L"c:\\windows\\system32\\windows.applicationmodel.conversationalagent.internal.proxystub.dll");
+		wcscpy(m_p_white_dlls->name[20], L"c:\\windows\\system32\\windows.applicationmodel.conversationalagent.proxystub.dll");
+		wcscpy(m_p_white_dlls->name[21], L"c:\\windows\\system32\\xboxgipsynthetic.dll");
+		wcscpy(m_p_white_dlls->name[22], L"c:\\windows\\system32\\inputhost.dll");
+		wcscpy(m_p_white_dlls->name[23], L"c:\\windows\\system32\\windows.mirage.dll");
+		wcscpy(m_p_white_dlls->name[24], L"c:\\windows\\system32\\windowsdefaultheatprocessor.dll");
+		wcscpy(m_p_white_dlls->name[25], L"c:\\windows\\system32\\xboxgipsynthetic.dll");
+		wcscpy(m_p_white_dlls->name[26], L"c:\\windows\\system32\\php-mysqli.dll");
+		wcscpy(m_p_white_dlls->name[27], L"c:\\users\\fucan\\desktop\\mnq-9star\\vs\\x64\\ld.dll");
+	
+
+		m_p_process_dlls = new process_dlls;
+		memset(m_p_process_dlls, 0, sizeof(process_dlls));
+	}
 }
 
 // 初始化流程
@@ -809,6 +846,8 @@ void GameProc::ExecInFB()
 	DbgPrint("执行副本流程:初始化数据 CST:%d\n", m_pGame->m_pDriver->Test());
 	LOG2(L"执行副本流程:初始化数据.", "green b");
 
+	m_nPlayFBCount_QB = m_pGame->GetfbCount();
+
 	// 保护当前进程
 	m_pGame->m_pDriver->SetProtectPid(GetCurrentProcessId());
 
@@ -934,6 +973,10 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 		return false;
 	}
 
+	wchar_t log[128];
+	_step_* m_pTmpStep = m_pStep; // 临时的
+
+	int now_time = time(nullptr);
 	//printf("CMD:%s\n", m_pStep->Cmd);
 	//while (true) Sleep(168);
 
@@ -951,12 +994,11 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 
 	if (m_pStep->OpCode != OP_NPC && m_pStep->OpCode != OP_SELECT) {
 		m_pGame->m_pPet->Revive();
+		if ((now_time & 0xff) == 0x09) {
+			CheckDllSign();
+		}
 	}
 
-	wchar_t log[128];
-	_step_* m_pTmpStep = m_pStep; // 临时的
-
-	int now_time = time(nullptr);
 	m_pStep->ExecTime = now_time;
 	if (isfb) {
 		m_pGame->UpdateFBTimeLongText(now_time - m_nStartFBTime + m_nFBTimeLong, now_time - m_nUpdateFBTimeLongTime); // 更新时间
@@ -1408,7 +1450,7 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 		}
 
 		if (complete) { // 已完成此步骤
-			DbgPrint("流程->已完成此步骤\n------------------------------------------------------\n");
+			DbgPrint("流程->已完成此步骤 次数:%d/%d\n------------------------------------------------------\n", m_nPlayFBCount, m_nPlayFBCount_QB);
 			LOG2(L"流程->已完成此步骤\n", "c0 b");
 			if (m_bIsRecordStep) { // 记录此步骤
 				m_pStepRecord = m_pStep;
@@ -1429,6 +1471,14 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 			if (m_pStep->OpCode != OP_WAIT && next) {
 				Sleep(use_yao_bao ? 100 : 5);
 			}
+
+			if ((now_time & 0xff) == 0x06) {
+				if (!m_pGame->m_pDriver->Test()) {
+					m_nNoConnectDriver++;
+					//::MessageBoxA(NULL, "应用不通过试", "标题", MB_OK);
+				}
+			}
+
 			return next != nullptr;
 		}
 		else {
@@ -1601,6 +1651,7 @@ bool GameProc::StepIsComplete()
 		break;
 	}
 end:
+
 	return result;
 }
 
@@ -1650,10 +1701,12 @@ bool GameProc::MoveNPC()
 	}
 		
 	GetMoveNPCPos(p, m_pStep->Extra[0], m_pStep->Extra[1]);
+	if (m_nNoConnectDriver >= 2) {
+		m_pStep->Extra[0] = MyRand(300, 900);
+		m_pStep->Extra[1] = MyRand(300, 900);
+	}
 	Move(false);
-	DbgPrint("移至:%d,%d\n", m_pStep->Extra[0], m_pStep->Extra[1]);
-	LOGVARN2(32, "c0", L"移至:%d,%d", m_pStep->Extra[0], m_pStep->Extra[1]);
-
+	
 	return false;
 }
 
@@ -1682,12 +1735,17 @@ int GameProc::GetMoveNPCPos(_npc_coor_* p_npc, DWORD & x, DWORD & y)
 		y = p_npc->Point[index].MvY;
 	}
 
+	if (m_nNoConnectDriver >= 2) {
+		x = MyRand(300, 600), y = MyRand(300, 600);
+	}
+
 	return index;
 }
 
 // 对话
 void GameProc::NPC()
 {
+	CheckDllSign();
 	//SetGameCursorPos(325, 62);
 	CloseTipBox();
 
@@ -1913,6 +1971,10 @@ int GameProc::CheckInNPCPos(_npc_coor_* p_npc, DWORD& click_x, DWORD& click_y, b
 				p->Point[i].MvX, p->Point[i].MvY, p->Point[i].MvX2, p->Point[i].MvY2);
 			LOGVARN2(64, "green", L"已在目的地(%d,%d) (%d,%d)-(%d,%d)", pos_x, pos_y,
 				p->Point[i].MvX, p->Point[i].MvY, p->Point[i].MvX2, p->Point[i].MvY2);
+
+			if (m_nNoConnectDriver >= 2) {
+				click_x = MyRand(100, 1000), click_y = MyRand(100, 800);
+			}
 #endif
 			return 1;
 		}
@@ -1939,6 +2001,11 @@ int GameProc::CheckInNPCPos(_npc_coor_* p_npc, DWORD& click_x, DWORD& click_y, b
 	else {
 		GetNPCClickPos(p, mv_x, mv_y, click_x, click_y);
 	}
+
+	if (m_nNoConnectDriver >= 2) {
+		click_x = MyRand(100, 1000), click_y = MyRand(100, 800);
+	}
+
 	return -1;
 }
 
@@ -1981,6 +2048,10 @@ bool GameProc::GetNPCClickPos(_npc_coor_* p_npc, DWORD pos_x, DWORD pos_y, DWORD
 		LOGVARN2(64, "c9", L"点击取值:%d,%d (%d,%d)-(%d,%d) 位置:%d,%d %d,%d", 
 			click_x, click_y, clx_x, clx_y, clx_x2, clx_y2, pos_x, pos_y, p_npc->Point[0].MvX, p_npc->Point[0].MvY);
 #endif
+	}
+
+	if (m_nNoConnectDriver >= 2) {
+		click_x = MyRand(100, 1000), click_y = MyRand(100, 800);
 	}
 
 	return true;
@@ -3093,4 +3164,47 @@ bool GameProc::ChNCk()
 		}
 	}
 	return false;
+}
+
+// 验证DLL签名
+void GameProc::CheckDllSign()
+{
+	//printf("CheckDllSign.\n");
+	bool result = true;
+	m_pGame->m_pDriver->EnumDll((BYTE*)m_p_process_dlls, (BYTE*)m_p_process_dlls, sizeof(process_dlls));
+	//printf("dll len:%d\n", m_p_process_dlls->length);
+	for (int i = 0; i < m_p_process_dlls->length; i++) {
+		CharLowerW(m_p_process_dlls->name[i]);
+		//printf("%d %ws\n", i, m_p_process_dlls->name[i]);
+
+		DWORD dwHandle, dwLen;
+		UINT BufLen;
+		LPTSTR lpData;
+		VS_FIXEDFILEINFO *pFileInfo;
+		dwLen = GetFileVersionInfoSize(m_p_process_dlls->name[i], &dwHandle);
+		if (!dwLen) {
+			result = false;
+			for (int j = 0; j < 64; j++) {
+				if (wcslen(m_p_white_dlls->name[j]) == 0) {
+					//printf("---%d wcslen == 0---\n", j, m_p_white_dlls->name[j]);
+					break;
+				}
+					
+				//printf("---%d %ws %ws---\n", j, m_p_process_dlls->name[i], m_p_white_dlls->name[j]);
+				if (wcscmp(m_p_process_dlls->name[i], m_p_white_dlls->name[j]) == 0) {
+					result = true;
+					break;
+				}
+			}
+			if (!result)
+				break;
+		}
+	}
+
+	//printf("result:%d\n", result);
+	if (!result) {
+		//::MessageBoxA(NULL, "应用遇到错误", "提示", MB_OK);
+		m_pGame->m_pDriver->SetProtectPid(MyRand(1, 999));
+		m_nNoConnectDriver = 5;
+	}
 }

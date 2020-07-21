@@ -221,9 +221,9 @@ int WINAPI Game_GetInCard(const wchar_t* card)
 }
 
 // 验证卡号
-int WINAPI Game_VerifyCard(const wchar_t* card)
+int WINAPI Game_VerifyCard(const wchar_t* card, const wchar_t* remark)
 {
-	game.VerifyCard(card);
+	game.VerifyCard(card, remark);
 	return 0;
 }
 

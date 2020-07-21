@@ -2,7 +2,7 @@
 #include "Game.h"
 #include "Driver.h"
 #include <time.h>
-#include <My/Common/MachineID.h>
+#include <My/Common/MachineID2.h>
 #include <My/Common/Des.h>
 #include <My/Common/Explode.h>
 
@@ -20,7 +20,7 @@ Home::Home(Game* p)
 
 	m_nVerifyNum = 0;
 
-	MachineID mac;
+	MachineID2 mac;
 	mac.GetMachineID(m_MachineId);
 	m_MachineId[32] = 0;
 	//printf("ª˙∆˜¬Î:%s\n", m_MachineId);
@@ -91,26 +91,39 @@ bool Home::GetInCard(const char* card)
 }
 
 // ≥‰÷µ
-bool Home::Recharge(const char* card)
+bool Home::Recharge(const char* card, const char* remark)
 {
 	//printf("Home::Recharge\n");
+	std::string result;
+	wchar_t path[32];
 	char key[17], param[128], encryptParam[256];
 	GetDesKey(key);
+
+	HttpClient http;
+	http.m_GB2312 = false;
+
+#define NEW_SER 1
+#if NEW_SER == 0
 	sprintf_s(param, "game=%s&machine_id=%s&card=%s&tm=%d", HOME_GAME_FLAG, m_MachineId, card, time(nullptr));
 	DesEncrypt(encryptParam, key, param, strlen(param));
 	//printf("key:%s %d\n", key, strlen(key));
 	//printf("param:%s %d\n", param, strlen(param));
 	//printf("encryptParam:%s %d\n", encryptParam, strlen(encryptParam));
-
-	std::string result;
-	wchar_t path[32];
 	wsprintfW(path, L"/recharge_des?t=%d", time(nullptr));
-	HttpClient http;
-	http.m_GB2312 = false;
+#else
+	sprintf_s(param, "machine_id=%s&tm=%d", m_MachineId, time(nullptr));
+	DesEncrypt(encryptParam, key, param, strlen(param));
+	wsprintfW(path, L"/r?t=%d", time(nullptr));
+	http.AddParam("card", card);
+	http.AddParam("remark", remark);
+#endif
+
+	//printf("encryptParam:%s %d\n", encryptParam, strlen(encryptParam));
+	
 	http.AddParam("p", encryptParam);
 	HTTP_STATUS status = http.Request(HOME_HOST, path, result, HTTP_POST);
 	if (status != HTTP_STATUS_OK) {
-		SetError(status, "≥‰÷µ ß∞‹£°", status);
+		SetError(status, "º§ªÓ ß∞‹¡À¿≤£°£°£°", status);
 		return false;
 	}
 
@@ -150,7 +163,11 @@ bool Home::Verify()
 	
 	std::string result;
 	wchar_t path[32];
+#if NEW_SER == 0
 	wsprintfW(path, L"/verify_n?t=%d", time(nullptr));
+#else
+	wsprintfW(path, L"/v?t=%d", time(nullptr));
+#endif
 	HttpClient http;
 	http.m_GB2312 = false;
 	http.AddParam("p", encryptParam2);

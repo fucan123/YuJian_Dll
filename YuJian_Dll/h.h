@@ -35,7 +35,7 @@ extern "C" {
 	// 转移卡号本机
 	int WINAPI Game_GetInCard(const wchar_t* card);
 	// 验证卡号
-	int WINAPI Game_VerifyCard(const wchar_t* card);
+	int WINAPI Game_VerifyCard(const wchar_t* card, const wchar_t* remark);
 	// 查询副本记录
 	int WINAPI Game_SelectFBRecord(char*** result, int* col);
 	// 喊话

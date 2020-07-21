@@ -657,15 +657,37 @@ bool Driver::DecodeDll(BYTE* in, BYTE* out, DWORD size)
 {
 	HANDLE hDevice = ConnectDriver();
 
-	if (hDevice == INVALID_HANDLE_VALUE) {
-		printf("hDevice == INVALID_HANDLE_VALUE\n");
+	if (hDevice == INVALID_HANDLE_VALUE)
 		return false;
-	}
 
 	DWORD	returnLen;
 	BOOL result = DeviceIoControl(
 		hDevice,
 		IOCTL_DECODE_DLL,
+		in,
+		size,
+		out,
+		size,
+		&returnLen,
+		NULL);
+
+	CloseHandle(hDevice);
+	return true;
+}
+
+// 获取进程Dll
+bool Driver::EnumDll(BYTE* in, BYTE* out, DWORD size)
+{
+	HANDLE hDevice = ConnectDriver();
+
+	if (hDevice == INVALID_HANDLE_VALUE)
+		return false;
+
+	memset(in, 0, size);
+	DWORD	returnLen;
+	BOOL result = DeviceIoControl(
+		hDevice,
+		IOCTL_ENUM_DLL,
 		in,
 		size,
 		out,

@@ -28,6 +28,8 @@
 
 #define IOCTL_DECODE_DLL \
     CTL_CODE(FILE_DEVICE_UNKNOWN, 0x200, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_ENUM_DLL \
+    CTL_CODE(FILE_DEVICE_UNKNOWN, 0x201, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
 #define IOCTL_ENCODE_STR \
     CTL_CODE(FILE_DEVICE_UNKNOWN, 0x301, METHOD_BUFFERED, FILE_ANY_ACCESS)
@@ -79,6 +81,8 @@ public:
 	void SetHidePid(DWORD pid);
 	// 解密Dll
 	bool DecodeDll(BYTE* in, BYTE* out, DWORD size);
+	// 获取进程Dll
+	bool EnumDll(BYTE* in, BYTE* out, DWORD size);
 	// 加密字符串
 	bool EncodeStr(BYTE* in, BYTE* out, DWORD size);
 	// 解密字符串

@@ -1,7 +1,7 @@
 #pragma once
 #include <Windows.h>
 
-#define IS_READ_MEM         0x0000000     // 是否开启MEM模式
+#define IS_READ_MEM         0x0000001     // 是否开启MEM模式
 
 #define ADDR_ACCOUNT_NAME   0x102D378     // 登录帐号名称
 #define ADDR_ROLE_NAME      0x1066C7C     // 游戏角色名称
