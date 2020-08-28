@@ -111,6 +111,9 @@ void Game::Listen(USHORT port)
 
 void Game::Run()
 {
+#if ISCMD == 0
+	return;
+#endif
 	//DbgPrint("TST:%d\n", m_pDriver->Test());
 	//CheckGameOtherModule();
 	//m_pGame->m_pGameProc->CheckDllSign();
@@ -140,10 +143,11 @@ void Game::Run()
 
 	//DbgPrint("!m_pGame->m_pHome->IsValid()!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 	while (!m_pGame->m_pHome->IsValid()) {
-		//DbgPrint("Run:Î´¼¤»î\n");
+		DbgPrint("Run:Î´¼¤»î\n");
 		Sleep(1000);
 	}
 
+	DbgPrint("try fs...\n");
 	bool try_fs = true;
 _try_fs_install_:
 	if (m_pDriver->InstallFsFilter(m_chPath, "360SafeFsFlt.sys", "370030")) {

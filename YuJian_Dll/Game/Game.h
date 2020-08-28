@@ -10,8 +10,6 @@
 #define P2DW(v) (*(DWORD*)(v))       // 转成DWORD数值
 #define P2INT(v) (*(int*)(v))        // 转成int数值
 
-#define ISCMD 1
-
 #if ISCMD == 0
 #define DbgPrint(...)
 

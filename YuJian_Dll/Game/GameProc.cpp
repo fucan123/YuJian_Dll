@@ -469,10 +469,21 @@ void GameProc::AllOutFB(bool big)
 		_account_* p = m_pGame->m_AccountList[i];
 		if (!m_pGame->IsOnline(p))
 			continue;
-		if (!big && p->IsBig) // 大号不出去
+		if (p->IsBig) // 大号不出去
 			continue;
 
 		OutFB(p);
+	}
+	if (big) {
+		for (int i = 0; i < m_pGame->m_AccountList.size(); i++) {
+			_account_* p = m_pGame->m_AccountList[i];
+			if (!m_pGame->IsOnline(p))
+				continue;
+			if (!p->IsBig) // 大号不出去
+				continue;
+
+			OutFB(p);
+		}
 	}
 }
 
@@ -535,7 +546,7 @@ void GameProc::OutFB(_account_* account)
 			m_pGame->m_pTalk->Select("离开卡利亚堡[外]", account->Wnd.Pic, true);
 			Sleep(800);
 			m_pGame->m_pTalk->Select("我要离开[外]", account->Wnd.Pic, true);
-			Sleep(500);
+			Sleep(1000);
 			m_pGame->m_pTalk->Select("最后离开.确定", account->Wnd.Pic, true);
 			Sleep(1000);
 		}
@@ -1414,10 +1425,6 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 					DbgPrint("\n~~~~~~~~~~~~~~~~~~游戏已掉线或已异常结束~~~~~~~~~~~~~~~~~~\n\n");
 					LOG2(L"\n~~~~~~~~~~~~~~~~~~游戏已掉线或已异常结束~~~~~~~~~~~~~~~~~~\n", "red");
 					return false;
-				}
-
-				if (m_nBossNum > 1) {
-					m_pGame->m_pServer->SmallOutFB(m_pGame->m_pBig, nullptr, 0);
 				}
 
 				ReBorn(); // 复活
