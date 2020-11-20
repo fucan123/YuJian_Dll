@@ -18,7 +18,7 @@
 #define BUTTON_ID_CKIN_ITEM 0x486         // 仓库物品"存储物品栏"
 #define BUTTON_ID_CKIN_PGUP 0x488         // 仓库向上翻页按钮"U"
 #define BUTTON_ID_CKIN_PGDW 0x489         // 仓库向下翻页按钮"D"
-#define BUTTON_ID_CLOSEMENU 0x49C         // 通用菜单关闭按钮"C"
+#define BUTTON_ID_CLOSEMENU 0x49C         // 通用菜单关闭按钮"C"或'x'
 #define BUTTON_ID_REBORN_AT 0x4A2         // 原地复活"XP1"
 #define BUTTON_ID_REBORN    0x4A3         // 复活"XP2"
 #define BUTTON_ID_ROLEVIP   0x5AD         // 点开人物上面VIP按钮ID

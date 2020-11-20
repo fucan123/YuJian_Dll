@@ -14,10 +14,21 @@ Magic::Magic(Game* p)
 // 使用技能
 int Magic::UseMagic(const char* name, int mv_x, int mv_y, int ms, int count)
 {
+	if (name == nullptr)
+		return 0;
+
 	wchar_t log[128];
 	int click_x = 0, click_y = 0;
 	BYTE key = GetMagicKey(name);
-	if (strcmp(name, "诸神裁决") == 0) {
+	if (key == 0) {
+		if (*name >= '1' && *name <= '9') {
+			m_pGame->m_pButton->Key(*name);
+		}
+		if (*name == 'f' || *name == 'F') {
+			m_pGame->m_pButton->Key(VK_F1 + (name[1] - '1'));
+		}
+	}
+	else if (strcmp(name, "诸神裁决") == 0) {
 		UseCaiJue(mv_x, mv_y, ms);
 	}
 	else if (strcmp(name, "最终审判") == 0) {
@@ -229,6 +240,8 @@ BYTE Magic::GetMagicKey(const char* name)
 		return VK_F4;
 	if (strcmp(name, "最终审判") == 0)
 		return VK_F5;
+
+	return 0;
 }
 
 // 技能是否放出
@@ -282,6 +295,8 @@ int Magic::MagicIsOut(const char* name)
 	int result = m_nPixelCount >= need_count && m_nPixelCount <= max_count ? 1 : 0;
 	if (result && strcmp(name, "星陨") == 0)
 		result = m_nPixelCount != 73;
+	if (result && strcmp(name, "影魂契约") == 0)
+		result = m_nPixelCount != 47 && m_nPixelCount != 46;
 
 	return result;
 }

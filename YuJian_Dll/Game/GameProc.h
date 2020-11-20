@@ -159,8 +159,6 @@ public:
 	bool CloseItemUseTipBox();
 	// 关闭系统邀请提示框
 	bool CloseSystemViteBox();
-	// 查找
-	void Find(Link<_step_*>& link);
 	// 随机点击
 	void ClickRand();
 	// 狂暴点击

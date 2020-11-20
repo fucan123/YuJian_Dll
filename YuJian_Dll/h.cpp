@@ -306,6 +306,12 @@ DWORD WINAPI Verify(LPVOID param)
 
 		my_msg* msg = game.GetMyMsg(MSG_VERIFY_OK);
 		PostMessage(game.m_hUIWnd, MSG_CALLJS, (WPARAM)msg, 0);
+
+#if ISCMD == 0
+		std::string card_no;
+		game.m_pHome->GetCardNo(card_no);
+		game.UpdateText("card_no", card_no.c_str());
+#endif
 	}
 	else {
 		game.UpdateStatusText(L"未激活.", 3);

@@ -22,7 +22,7 @@ bool Driver::Test()
 
 	char in,out;
 	DWORD return_length;
-	BOOL result = DeviceIoControl(hDevice, IOCTL_ENCODE_STR, &in, sizeof(in), &out, sizeof(out),&return_length, NULL);
+	BOOL result = DeviceIoControl(hDevice, IOCTL_SET_HIDE_PID, &in, sizeof(in), &out, sizeof(out),&return_length, NULL);
 	CloseHandle(hDevice);
 	return result;
 }
@@ -597,7 +597,7 @@ void Driver::SetProtectVBoxPid(DWORD pid)
 		&returnLen,
 		NULL);
 	//printf("保护模拟器进程ID:%d %d\n", pid, result);
-	LOGVARN2(32, "green b", L"Protect VBox:%d", pid);
+	//LOGVARN2(32, "green b", L"Protect VBox:%d", pid);
 
 	CloseHandle(hDevice);
 }

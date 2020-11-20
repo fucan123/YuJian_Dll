@@ -38,6 +38,8 @@ public:
 	bool GetInCard(const char* card);
 	// 充值
 	bool Recharge(const char* card, const char* remark);
+	// 获取卡号
+	void GetCardNo(std::string& result);
 	// 验证
 	bool Verify();
 	// 获得此机器有效时间（秒）

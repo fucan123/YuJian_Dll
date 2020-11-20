@@ -29,6 +29,7 @@ int GameData::WatchGame()
 		DWORD pids[10];
 		DWORD len = SGetProcessIds(L"soul.exe", pids, sizeof(pids) / sizeof(DWORD));
 		DbgPrint("游戏进程数量:%d\n", len);
+		LOGVARP2(log, "c0", L"游戏进程数量:%d", len);
 		for (int i = 0; i < len; i++) {
 			ZeroMemory(&m_DataAddr, sizeof(m_DataAddr));
 
@@ -128,8 +129,11 @@ int GameData::WatchGame()
 					CloseHandle(m_hGameProcess);
 				}
 			}
+			else {
+				DbgPrint("无权限获取进程[%d]\n", pids[i]);
+				LOGVARP2(log, "c0", L"无权限获取进程[%d]", pids[i]);
+			}
 #endif
-
 		}
 		break;
 		Sleep(8000);
@@ -238,7 +242,7 @@ bool GameData::FindLifeAddr()
 	};
 	DWORD address = 0;
 	if (SearchCode(codes, sizeof(codes) / sizeof(DWORD), &address, 1, 1)) {
-		m_DataAddr.Life = address + 0x14;
+		m_DataAddr.Life = address + 0x18;
 		DbgPrint("(%s)血量地址:%08X\n", m_pAccountTmp->Name, m_DataAddr.Life);
 		LOGVARN2(64, "blue", L"(%hs)血量地址:%08X", m_pAccountTmp->Name, m_DataAddr.Life);
 	}

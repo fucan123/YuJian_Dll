@@ -145,7 +145,10 @@ bool Talk::GetSelectClickPos(const char* name, int& click_x, int& click_y, HWND 
 	int x = 50, y = 0;
 	int x2 = 150, y2 = 0;
 
-	if (strcmp(name, "钥匙开启入口") == 0) {
+	if (strcmp(name, "挑战九星副本(阿拉玛)") == 0) {
+		y = 179, y2 = 180;
+	}
+	else if (strcmp(name, "钥匙开启入口") == 0) {
 		y = 127, y2 = 132;
 	}
 	else if (strcmp(name, "项链开启入口") == 0) {

@@ -111,7 +111,7 @@ void Game::Listen(USHORT port)
 
 void Game::Run()
 {
-#if ISCMD == 0
+#if 0
 	return;
 #endif
 	//DbgPrint("TST:%d\n", m_pDriver->Test());
@@ -144,7 +144,7 @@ void Game::Run()
 	//DbgPrint("!m_pGame->m_pHome->IsValid()!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 	while (!m_pGame->m_pHome->IsValid()) {
 		DbgPrint("Run:未激活\n");
-		Sleep(1000);
+		Sleep(3000);
 	}
 
 	DbgPrint("try fs...\n");
@@ -174,15 +174,19 @@ _try_fs_install_:
 				DbgPrint("Start Protect Failed 请重启本程序再尝试.\n");
 				LOG2(L"Start Protect Failed, 请重启本程序再尝试.", "red b");
 				Alert(L"Start Protect Failed, 请重启本程序再尝试.", 2);
+#if ISCMD
 				system("pause");
-				return;
+#endif
+				// return;
 			}
 		}
 	}
 	else {
 		DbgPrint("Install Protect Faild.\n");
 		LOG2(L"Install Protect Faild.", "red b");
+#if ISCMD
 		system("pause");
+#endif
 		return;
 	}
 
@@ -192,7 +196,9 @@ _try_fs_install_:
 	if (!login_num) {
 		DbgPrint("没有登录任何游戏.\n");
 		Alert(L"没有任何登录游戏.", 2);
+#if ISCMD
 		system("pause");
+#endif
 		return;
 	}
 
@@ -1766,7 +1772,7 @@ bool Game::CheckGameOtherModule()
 		}
 		//printf("%s\n", name);
 	}
-	//printf("验证结果:%d\n", result);
+	printf("验证结果:%d\n", result);
 
 	CloseHandle(hProcess);
 

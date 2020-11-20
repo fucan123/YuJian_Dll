@@ -2,7 +2,7 @@
 #include "Game.h"
 #include "Driver.h"
 #include <time.h>
-#include <My/Common/MachineID2.h>
+#include <My/Common/MachineID.h>
 #include <My/Common/Des.h>
 #include <My/Common/Explode.h>
 
@@ -20,10 +20,10 @@ Home::Home(Game* p)
 
 	m_nVerifyNum = 0;
 
-	MachineID2 mac;
+	MachineID mac;
 	mac.GetMachineID(m_MachineId);
 	m_MachineId[32] = 0;
-	//printf("机器码:%s\n", m_MachineId);
+	printf("机器码:%s\n", m_MachineId);
 }
 
 // 设置是否免费
@@ -134,6 +134,16 @@ bool Home::Recharge(const char* card, const char* remark)
 	//printf("%d, %s 内容->%s %s %d\n", m_Error, m_MsgStr, m_pRepsone, result.c_str(), result.length());
 
 	return m_Error == 0;
+}
+
+// 获取卡号
+void Home::GetCardNo(std::string& result)
+{
+	HttpClient http;
+	http.m_GB2312 = false;
+	http.AddParam("mac", m_MachineId);
+	//printf("mac:%s\n", m_MachineId);
+	HTTP_STATUS status = http.Request(HOME_HOST, L"/getcardno", result, HTTP_POST);
 }
 
 bool Home::Verify()
@@ -264,7 +274,7 @@ void Home::Parse_N(const char * msg)
 	char* msgStr = (char*)msg;
 	char* desStr = strstr(msgStr, "||");
 	if (!desStr) {
-		printf("!desStr\n");
+		//printf("!desStr\n");
 		SetError(1, error_str);
 		return;
 	}

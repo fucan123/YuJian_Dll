@@ -15,6 +15,8 @@ public:
 
 	// 初始化数据
 	void InitData();
+	// 设置每次移动距离
+	void SubOneMaxMovCoor(int v=0);
 	// 移动到目的地
 	int  RunEnd(DWORD x, DWORD y, _account_* account, DWORD time_out_ms=0);
 	// 移动
@@ -42,6 +44,8 @@ public:
 public:
 	// 游戏类
 	Game* m_pGame;
+	// 一次移动最大坐标
+	int   m_nOneMaxMovCoor;
 	// 当前位置X
 	DWORD m_dwX = 0;
 	// 当前位置Y

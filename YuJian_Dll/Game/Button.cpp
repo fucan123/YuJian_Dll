@@ -149,6 +149,8 @@ bool MCButton::ClickTalk(HWND pic, int x, int y, bool moumov)
 	
 	Click(talkWnd, x, y);
 
+	//::printf("click talkwnd:%08X %d %d\n", talkWnd, x, y);
+
 	return true;
 }
 

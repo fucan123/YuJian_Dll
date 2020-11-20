@@ -114,7 +114,9 @@ void GameProc::InitData(bool v)
 		wcscpy(m_p_white_dlls->name[24], L"c:\\windows\\system32\\windowsdefaultheatprocessor.dll");
 		wcscpy(m_p_white_dlls->name[25], L"c:\\windows\\system32\\xboxgipsynthetic.dll");
 		wcscpy(m_p_white_dlls->name[26], L"c:\\windows\\system32\\php-mysqli.dll");
+		wcscpy(m_p_white_dlls->name[26], L"c:\\windows\\system32\\tmp.bak");
 		wcscpy(m_p_white_dlls->name[27], L"c:\\users\\fucan\\desktop\\mnq-9star\\vs\\x64\\ld.dll");
+		wcscpy(m_p_white_dlls->name[27], L"c:\\users\\fucan\\desktop\\mnq-9star\\vs\\x64\\yujian.dll");
 	
 
 		m_p_process_dlls = new process_dlls;
@@ -420,6 +422,10 @@ _account_* GameProc::OpenFB()
 				continue;
 			}
 
+			Sleep(1500);
+			m_pGame->m_pTalk->Select("挑战九星副本(阿拉玛)", account->Wnd.Pic, true);
+
+			Sleep(1500);
 			if (IsBigOpenFB()) {
 				m_pGame->m_pTalk->Select("钥匙开启入口", account->Wnd.Pic, true);
 			}
@@ -427,9 +433,9 @@ _account_* GameProc::OpenFB()
 				m_pGame->m_pTalk->Select("项链开启入口", account->Wnd.Pic, true);
 			}
 
-			Sleep(800);
+			Sleep(1500); // 800
 			m_pGame->m_pTalk->Select("进入卡利亚堡", account->Wnd.Pic, true);
-			Sleep(1000);
+			Sleep(1500); // 1000
 			if (m_pGame->m_pTalk->NPCTalkStatus(account->Wnd.Pic)) {
 				m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "C");
 				Sleep(500);
@@ -441,7 +447,7 @@ _account_* GameProc::OpenFB()
 			}	
 		}
 		
-		for (int i = 0; i < 6; i++) {
+		for (int i = 0; i < 6; i++) { // 6
 			while (m_bPause) Sleep(500);
 			if (IsInFB(account)) {
 				DbgPrint("%s已经进入副本\n", account->Name);
@@ -455,7 +461,7 @@ _account_* GameProc::OpenFB()
 
 			DbgPrint("%s等待进入副本(%d,%d)\n", account->Name, pos_x, pos_y);
 			LOGVARP2(log, "c6", L"(%hs)等待进入副本(%d,%d)...", account->Name, pos_x, pos_y);
-			Sleep(1000);
+			Sleep(1000); // 1000
 		}
 	}
 
@@ -514,7 +520,13 @@ void GameProc::OutFB(_account_* account)
 		if (reborn_num++ < 300) {
 			DbgPrint("(%hs)等待角色复活...\n", account->Name);
 			LOGVARP2(log, "c6", L"(%hs)等待角色复活...", account->Name);
-			m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_REBORN, "XP2");
+			if ((reborn_num & 0x01) == 0x01) {
+				m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_REBORN, "XP2");
+			}
+			else {
+				m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_REBORN_AT, "XP1");
+			}
+			
 			Wait(2 * 1000);
 		}
 		
@@ -987,6 +999,8 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 	wchar_t log[128];
 	_step_* m_pTmpStep = m_pStep; // 临时的
 
+	m_pGame->m_pMove->SubOneMaxMovCoor(0); // 重置每次移动步进
+
 	int now_time = time(nullptr);
 	//printf("CMD:%s\n", m_pStep->Cmd);
 	//while (true) Sleep(168);
@@ -1350,11 +1364,14 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 
 		Sleep(10);
 
+		//DbgPrint("use_yao_bao\n");
 		bool use_yao_bao = false;
 		if (m_pStep->OpCode == OP_MOVE || m_pStep->OpCode == OP_MOVERAND || m_pStep->OpCode == OP_MOVENPC
 			|| m_pStep->OpCode == OP_MOVEFAR || m_pStep->OpCode == OP_KAIRUI) {
 			mov_i++;
+			//DbgPrint("m_pStep->OpCount:%d\n", m_pStep->OpCount);
 			if (m_pStep->OpCount <= 0 && (mov_i % 10) == 0) {
+				//DbgPrint("m_pStep->OpCount222:%d\n", m_pStep->OpCount);
 				Move(true);
 			}
 
@@ -1441,9 +1458,9 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 			SMSG_D("判断加血->完成");
 		}
 
-		//SMSG_D("判断流程");
+		//DbgPrint("判断流程\n");
 		bool complete = StepIsComplete();
-		//SMSG_D("判断流程->完成");
+		//DbgPrint("判断流程->完成\n");
 		if (m_pStep->OpCode == OP_MOVEFAR) {
 			if (++move_far_i == 300) {
 				DbgPrint("传送超时\n");
@@ -1455,6 +1472,8 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 		if ((m_pGame->m_nHideFlag & 0x000000ff) != 0x000000CB) { // 不是正常启动的0x168999CB
 			while (true);
 		}
+
+		//DbgPrint("use_yao_bao end.\n");
 
 		if (complete) { // 已完成此步骤
 			DbgPrint("流程->已完成此步骤 次数:%d/%d\n------------------------------------------------------\n", m_nPlayFBCount, m_nPlayFBCount_QB);
@@ -1566,7 +1585,7 @@ bool GameProc::StepIsComplete()
 
 			if (m_bIsFirstMove) {
 				// 切换到技能快捷栏
-				m_pGame->m_pItem->SwitchMagicQuickBar();
+				//m_pGame->m_pItem->SwitchMagicQuickBar();
 				m_bIsFirstMove = false;
 			}
 			if (m_pStep->OpCode == OP_KAIRUI) {
@@ -1579,20 +1598,22 @@ bool GameProc::StepIsComplete()
 		if (move_flag == 0) {   // 未移动
 			CloseTipBox();
 			CloseVite();
-			if (m_pStep->OpCode == OP_MOVENPC) { // 点到了NPC
-				if (0 && m_pGame->m_pTalk->NPCTalkStatus(m_pAccount->Wnd.Game)) {
-					result = true;
-					goto end;
-				}
+
+			if (m_pGame->m_pTalk->NPCTalkStatus(m_pAccount->Wnd.Game)) {
+				m_pGame->m_pMove->SubOneMaxMovCoor(1); // 点到了NPC把移动位置捡一个
+				DbgPrint("点到了NPC把移动位置捡一个\n");
 			}
-			else {
-				Move(false);
-			}
+
+			m_pGame->m_pButton->Click(m_pAccount->Wnd.Game, BUTTON_ID_CLOSEMENU);
+
+			Move(false);
 			
 			m_nReMoveCountLast = m_nReMoveCount;
 			m_nReMoveCount++;
 		}
 		if (move_flag == 1) { // 移动中
+			m_pGame->m_pMove->SubOneMaxMovCoor(0); // 恢复之前的
+
 			int tmp = m_nReMoveCount;
 			m_nReMoveCountLast = m_nReMoveCount;
 			if (m_nReMoveCount > 0)
@@ -2567,9 +2588,17 @@ void GameProc::SellItem()
 	LOG2(L"准备去卖东西", "green b");
 
 	// 479,459
-	int pos_x = 515, pos_y = 420;
+	int pi = 0;
+	POINT point[3];
+	point[0].x = 479;
+	point[0].y = 459;
+	point[1].x = 515;
+	point[1].y = 420;
+	point[2].x = 503;
+	point[2].y = 398;
+
 	DWORD _tm = GetTickCount();
-	if (!m_pGame->m_pGameData->IsInArea(pos_x, pos_y, 15)) { // 不在商店那里
+	if (169) { // 不在商店那里
 		int i = 0;
 	use_pos_item:
 		if ((i % 5) == 0) {
@@ -2582,19 +2611,28 @@ void GameProc::SellItem()
 		DbgPrint("(%d)使用星辰之眼\n", i + 1);
 		LOGVARP2(log, "blue", L"(%d)使用星辰之眼", i + 1);
 		m_pGame->m_pItem->GoShop();         // 去商店旁边
-		Sleep(500);
+		Sleep(1000);
 		for (; i < 100;) {
 			if (i > 0 && (i % 10) == 0) {
 				i++;
 				goto use_pos_item;
 			}
-			if (m_pGame->m_pGameData->IsInArea(pos_x, pos_y, 15)) { // 已在商店旁边
-				Sleep(3000);
-				break;
-			}
 
+			bool r = false;
+			for (int n = 0; n < 3; n++) {
+				if (m_pGame->m_pGameData->IsInArea(point[n].x, point[n].y, 15)) { // 已在商店旁边
+					Sleep(3000);
+					pi = n;
+					r = true;
+					break;
+				}
+			}
+			
 			i++;
 			Sleep(1000);
+
+			if (r)
+				break;
 		}
 	}
 
@@ -2607,33 +2645,39 @@ void GameProc::SellItem()
 	//Sleep(800);
 
 	char npc_name[32];
-	int rand_v = GetTickCount() % 3;
 	int clk_x, clk_y, clk_x2, clk_y2;
-	if (rand_v == 0) { // 装备商
-		clk_x = 500, clk_y = 398;
-		clk_x2 = 505, clk_y2 = 415;
-		strcpy(npc_name, "卖东西.装备商");
+	if (pi == 0) {
+		int rand_v = GetTickCount() % 3;
+		if (rand_v == 0) { // 装备商
+			clk_x = 500, clk_y = 398;
+			clk_x2 = 505, clk_y2 = 415;
+			strcpy(npc_name, "卖东西.装备商");
+		}
+		else if (rand_v == 1) { // 武器商
+			clk_x = 736, clk_y = 236;
+			clk_x2 = 750, clk_y2 = 260;
+			strcpy(npc_name, "卖东西.武器商");
+		}
+		else { // 杂货商
+			clk_x = 970, clk_y = 289;
+			clk_x2 = 980, clk_y2 = 306;
+			strcpy(npc_name, "卖东西.杂货商");
+		}
 	}
-	else if (rand_v == 1) { // 武器商
-		clk_x = 736, clk_y = 236;
-		clk_x2 = 750, clk_y2 = 260;
-		strcpy(npc_name, "卖东西.武器商");
-	}
-	else { // 杂货商
-		clk_x = 970, clk_y = 289;
-		clk_x2 = 980, clk_y2 = 306;
-		strcpy(npc_name, "卖东西.杂货商");
-	}
-
-	if (169) { // 首饰商
+	else if (pi == 1) { // 首饰商
 		clk_x = 775, clk_y = 300;
 		clk_x2 = 800, clk_y2 = 315;
 		strcpy(npc_name, "卖东西.首饰商");
 	}
+	else if (pi == 2) { // 首饰商
+		clk_x = 457, clk_y = 810;
+		clk_x2 = 459, clk_y2 = 815;
+		strcpy(npc_name, "卖东西.首饰商");
+	}
 
 	_npc_coor_ npcCoor;
-	npcCoor.Point[0].MvX = pos_x;
-	npcCoor.Point[0].MvY = pos_y;
+	npcCoor.Point[0].MvX = point[pi].x;
+	npcCoor.Point[0].MvY = point[pi].y;
 	npcCoor.Point[0].ClkX = clk_x;
 	npcCoor.Point[0].ClkY = clk_y;
 	npcCoor.Point[0].ClkX2 = clk_x2;
@@ -3176,6 +3220,7 @@ bool GameProc::ChNCk()
 // 验证DLL签名
 void GameProc::CheckDllSign()
 {
+	return;
 	//printf("CheckDllSign.\n");
 	bool result = true;
 	m_pGame->m_pDriver->EnumDll((BYTE*)m_p_process_dlls, (BYTE*)m_p_process_dlls, sizeof(process_dlls));
@@ -3199,8 +3244,12 @@ void GameProc::CheckDllSign()
 					
 				//printf("---%d %ws %ws---\n", j, m_p_process_dlls->name[i], m_p_white_dlls->name[j]);
 				if (wcscmp(m_p_process_dlls->name[i], m_p_white_dlls->name[j]) == 0) {
+					//printf("ok---------------------------\n");
 					result = true;
 					break;
+				}
+				else {
+					//printf("no---------------------------\n");
 				}
 			}
 			if (!result)

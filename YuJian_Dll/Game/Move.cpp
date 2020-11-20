@@ -18,7 +18,22 @@ Move::Move(Game* p)
 // 初始化数据
 void Move::InitData()
 {
+	m_nOneMaxMovCoor = ONE_MAX_MOV_COOR;
 	ClearMove();
+}
+
+// 设置每次移动距离
+void Move::SubOneMaxMovCoor(int v)
+{
+	if (v == 0) {
+		m_nOneMaxMovCoor = ONE_MAX_MOV_COOR;
+	}
+	else {
+		m_nOneMaxMovCoor -= v;
+		if (m_nOneMaxMovCoor <= 5) {
+			m_nOneMaxMovCoor = ONE_MAX_MOV_COOR;
+		}
+	}
 }
 
 // 移动到目的地
@@ -56,8 +71,11 @@ int Move::Run(DWORD x, DWORD y, _account_* account, bool check_time)
 {
 	if (check_time) {
 		DWORD ms = MyRand(260, 300);
-		if ((GetTickCount() - account->MvTime) < ms)
+		if ((GetTickCount() - account->MvTime) < ms) {
+			//DbgPrint("GetTickCount=%d,%d %d %d\n", GetTickCount(), account->MvTime, ms, GetTickCount() - account->MvTime);
 			return 0;
+		}
+			
 	}
 	if (m_pGame->m_pGameData->IsInArea(x, y, 0, account)) {
 		account->MvX = x;
@@ -105,7 +123,7 @@ int Move::Run(DWORD x, DWORD y, _account_* account, bool check_time)
 		//Sleep(2000);
 	}
 	
-
+	//DbgPrint("设置目的完成\n");
 	return 1;
 }
 
@@ -142,9 +160,11 @@ void Move::SetMove(DWORD x, DWORD y, _account_* account, bool set_mv_time)
 
 	account->MvX = x;
 	account->MvY = y;
-	if (set_mv_time)
+	if (set_mv_time) {
 		account->MvTime = GetTickCount();
-
+		//DbgPrint("account->MvTime:%d\n", account->MvTime);
+	}
+		
 	int now_time = time(nullptr);
 	if ((now_time & 0x2f) == 0x02) {
 		m_pGame->ChCRC();
@@ -200,7 +220,7 @@ int Move::IsMove(_account_* account)
 	if (ms < (account->MvTime + 800)) // 小于500豪秒 不判断
 		return -1;
 
-	account->MvTime = ms;
+	//account->MvTime = ms;
 
 	if (!account->LastX || !account->LastY)
 		return 0;
@@ -212,7 +232,7 @@ int Move::IsMove(_account_* account)
 
 	account->LastX = x;
 	account->LastY = y;
-	account->MvTime = ms;
+	//account->MvTime = ms;
 	return 1;
 }
 
@@ -222,15 +242,15 @@ void Move::CalcRealMovCoor(int& mv_x, int& mv_y, _account_* account)
 	float dist = GetDistBy3D(account->LastX, account->LastY, 0, account->MvX, account->MvY, 0);
 	float angle = abs(GetAngle_XY(account->LastX, account->LastY, account->MvX, account->MvY));
 
-	int x = abs(angle / 90.f * ONE_MAX_MOV_COOR);
-	int y = abs((90.f - angle) / 90.f * ONE_MAX_MOV_COOR);
+	int x = abs(angle / 90.f * m_nOneMaxMovCoor);
+	int y = abs((90.f - angle) / 90.f * m_nOneMaxMovCoor);
 	if (angle == 0) {
-		x = ONE_MAX_MOV_COOR;
+		x = m_nOneMaxMovCoor;
 		//y = 0;
 	}
 	if (angle == 90.f) {
 		//x = 0;
-		y = ONE_MAX_MOV_COOR;
+		y = m_nOneMaxMovCoor;
 	}
 
 	char log[64];
@@ -261,8 +281,8 @@ void Move::CalcRealMovCoor(int& mv_x, int& mv_y, _account_* account)
 	// 计算未到的坐标到合适位置(如62,60至63,80计算到63,60会过近需要另外计算y坐标)
 	if (x != account->MvX || y != account->MvY) { 
 		if (x == account->MvX) {
-			int v = ONE_MAX_MOV_COOR - abs(x - (int)account->LastX);
-			int max_v = ONE_MAX_MOV_COOR - abs(y - (int)account->LastY);
+			int v = m_nOneMaxMovCoor - abs(x - (int)account->LastX);
+			int max_v = m_nOneMaxMovCoor - abs(y - (int)account->LastY);
 			int max_v2 = abs(y - (int)account->MvY);
 
 			v = min(v, max_v);
@@ -277,8 +297,8 @@ void Move::CalcRealMovCoor(int& mv_x, int& mv_y, _account_* account)
 			//DbgPrint("x v:%d, max v:%d,%d\n", v, max_v, max_v2);
 		}
 		if (y == account->MvY) {
-			int v = ONE_MAX_MOV_COOR - abs(y - (int)account->LastY);
-			int max_v = ONE_MAX_MOV_COOR - abs(x - (int)account->LastX);
+			int v = m_nOneMaxMovCoor - abs(y - (int)account->LastY);
+			int max_v = m_nOneMaxMovCoor - abs(x - (int)account->LastX);
 			int max_v2 = abs(x - (int)account->MvX);
 
 			v = min(v, max_v);
