@@ -93,6 +93,8 @@ bool Item::SlideStorge(int page)
 // 关闭仓库
 void Item::CloseStorage()
 {
+	DbgPrint("关闭仓库\n");
+	LOG2(L"关闭仓库", "orange b");
 	m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, BUTTON_ID_CLOSECKIN);
 }
 
@@ -128,12 +130,12 @@ bool Item::UseYaoBao()
 {
 	int yaobao = 0, yao = 0;
 	GetQuickYaoOrBaoNum(yaobao, yao);
-	if (yaobao > 0) {
+	if (yaobao > 1) {
 		m_pGame->m_pButton->Key('2'); // 2键
 		Sleep(200);
 	}
 	
-	return yaobao > 0;
+	return yaobao > 1;
 }
 
 // 去副本门口

@@ -44,6 +44,8 @@ extern "C" {
 }
 #endif
 
+// 打开游戏
+DWORD WINAPI OpenGame(LPVOID param);
 // 玩游戏
 DWORD WINAPI PlayGame(LPVOID param);
 // game.run

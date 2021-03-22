@@ -113,6 +113,14 @@ bool Talk::WaitTalkOpen(HWND pic, DWORD ms)
 
 		Sleep(100);
 	}
+
+	if (m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_hWndGame, BUTTON_ID_CANCEL))
+		Sleep(500);
+	if (m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_hWndGame, BUTTON_ID_CLOSEMENU, "x"))
+		Sleep(500);
+	if (m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_hWndGame, BUTTON_ID_CLOSEMENU, "X"))
+		Sleep(500);
+
 	return false;
 }
 
@@ -145,7 +153,10 @@ bool Talk::GetSelectClickPos(const char* name, int& click_x, int& click_y, HWND 
 	int x = 50, y = 0;
 	int x2 = 150, y2 = 0;
 
-	if (strcmp(name, "挑战九星副本(阿拉玛)") == 0) {
+	if (strcmp(name, "我要去雷鸣交易行") == 0) {
+		y = 185, y2 = 187;
+	}
+	else if (strcmp(name, "挑战九星副本(阿拉玛)") == 0) {
 		y = 179, y2 = 180;
 	}
 	else if (strcmp(name, "钥匙开启入口") == 0) {

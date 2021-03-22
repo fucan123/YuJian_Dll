@@ -10,6 +10,9 @@
 #define P2DW(v) (*(DWORD*)(v))       // 转成DWORD数值
 #define P2INT(v) (*(int*)(v))        // 转成int数值
 
+#define SET_VAR(var,v) var=v;
+#define SET_VAR2(var,v,var2,v2) var=v;var2=v2;
+
 #if ISCMD == 0
 #define DbgPrint(...)
 
@@ -70,7 +73,7 @@ typedef struct _account_
 {
 	char    Name[32];       // 帐号
 	char    Password[32];   // 密码
-	char    Role[16];       // 角色名称
+	char    Role[32];       // 角色名称
 	char    SerBig[32];     // 游戏大区
 	char    SerSmall[32];   // 游戏小区
 	int     RoleNo;
@@ -80,6 +83,7 @@ typedef struct _account_
 	int     IsReady;        // 是否已准备
 	int     IsBig;          // 是否大号
 	int     IsLogin;        // 是否已输入帐号密码登录
+	int     IsLeadear;      // 是否是队长了
 	int     OfflineLogin;   // 是否掉线重连
 	int     LockLogin;      // 是否锁定登录
 	float   Scale;
@@ -119,6 +123,18 @@ typedef struct _account_
 	} Wnd;
 } Account;
 
+typedef struct _share_team_
+{
+	char leader[32];     // 队长
+	char closer[32];     // 需要关闭的
+	char users[5][32];   // 账号
+	char players[5][32]; // 名称
+	char canin[5];       // 可以入队了
+	char result[5];      // 邀请的结果 与(&0x0f)表示有未处理
+	int  flag;           // 为1 请求完成
+	Account* account[5];
+} ShareTeam;
+
 using namespace std;
 
 class Sqlite;
@@ -149,16 +165,34 @@ public:
 	void Listen(USHORT port);
 	// 执行
 	void Run();
+	// 搞进
+	void Inject(DWORD pid, const wchar_t* dll_file, const wchar_t* short_name);
+	// 自动登号
+	bool AutoLogin(const char* remark);
 	// 登录
-	void Login(Account* p);
+	void Login(Account* p, int index);
+	// 获取最新游戏窗体
+	HWND FindNewGameWnd(DWORD* pid=NULL);
 	// 进入到登录界面
-	void GoLoginUI(int left, int top);
+	void GoLoginUI(Account* p);
+	// 选择游戏服务
+	void SelectServer(HWND hWnd);
+	// 获取大区点击坐标
+	void GetSerBigClickPos(int& x, int& y);
+	// 获取小区点击坐标
+	void GetSerSmallClickPos(int& x, int& y);
+	// 输入
+	void InputUserPwd(Account* p, bool input_user=true);
+	// 左击
+	void LeftClick(HWND hWnd, int x, int y);
+	// 按键
+	void Keyborad(int key, bool tra=true);
+	// 退出
+	void AutoLogout();
 	// 退出
 	void LogOut(Account* account);
 	// 输入帐号密码登录
 	void Input(Account* p);
-	// 自动登号
-	bool AutoLogin(const char* remark);
 	// 全部登完
 	void LoginCompleted(const char* remark);
 	// 设置登号类型
@@ -426,6 +460,7 @@ public:
 	// Driver
 	Driver* m_pDriver;
 
+	ShareTeam* m_pShareTeam;
 public:
 	// UI窗口
 	HWND m_hUIWnd;
@@ -451,6 +486,8 @@ public:
 
 	// 大号
 	Account* m_pBig = nullptr;
+	// 队长的
+	Account* m_pLeader = nullptr;
 
 	// 登号类型 -2停止登 -1全部 其他账号列表索引
 	int m_iLoginFlag = -2;
@@ -467,6 +504,8 @@ public:
 	int m_iSendCreateTeam = 1;
 	// 是否锁定登录
 	bool m_bLockLogin = false;
+	// 是否正在登录
+	bool m_bLoging = false;
 
 	char m_chTitle[32];
 	char m_chPath[255];
@@ -493,6 +532,4 @@ public:
 
 	// 隐藏标志应该为0x168999CB
 	int m_nHideFlag = 0;
-
-
 };

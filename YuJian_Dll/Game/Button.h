@@ -4,8 +4,10 @@
 
 #define BUTTON_ID_ROLE      0x3ED         // 人物按钮ID
 #define BUTTON_ID_BAG       0x3EF         // 背包按钮"物品"
-#define BUTTON_ID_TEAM      0x3F3         // 队伍按钮
+#define BUTTON_ID_TEAM      0x3F3         // 队伍按钮"组队"
+#define BUTTON_ID_SHEJIAO   0x402         // 社交按钮"好友"
 #define BUTTON_ID_SAVE_MNY  0x405         // 仓库金钱存储"取"
+#define BUTTON_ID_CRTTEAM   0x43B         // 创建队伍"1"
 #define BUTTON_ID_CANCEL    0x44E         // 取消按钮"取消"
 #define BUTTON_ID_CLOSESHOP 0x450         // 关闭商店按钮
 #define BUTTON_ID_BAG_SET   0x460         // 整理背包"物品栏-排序按钮"
@@ -18,7 +20,7 @@
 #define BUTTON_ID_CKIN_ITEM 0x486         // 仓库物品"存储物品栏"
 #define BUTTON_ID_CKIN_PGUP 0x488         // 仓库向上翻页按钮"U"
 #define BUTTON_ID_CKIN_PGDW 0x489         // 仓库向下翻页按钮"D"
-#define BUTTON_ID_CLOSEMENU 0x49C         // 通用菜单关闭按钮"C"或'x'
+#define BUTTON_ID_CLOSEMENU 0x49C         // 通用菜单关闭按钮"C"或'x'或'X'
 #define BUTTON_ID_REBORN_AT 0x4A2         // 原地复活"XP1"
 #define BUTTON_ID_REBORN    0x4A3         // 复活"XP2"
 #define BUTTON_ID_ROLEVIP   0x5AD         // 点开人物上面VIP按钮ID
@@ -31,12 +33,14 @@
 #define BUTTON_ID_MAGIC     0x752         // 技能快捷键"技能"
 #define BUTTON_ID_INFB      0x7B2         // 同意进副本按钮"同意"
 #define BUTTON_ID_JUJUE     0x7B3         // 同意进副本按钮"拒绝"
-#define BUTTON_ID_INTEAM    0x815         // 同意入队按钮
+#define BUTTON_ID_INTEAM    0x45A         // 同意入队按钮"同意"
+//#define BUTTON_ID_INTEAM    0x815         // 同意入队按钮
 #define BUTTON_ID_SURE      0x8BA         // 确定按钮"接受"(副本邀请队员确定按钮)
 #define BUTTON_ID_CHECKIN   0x960         // 物品仓库按钮ID
-#define BUTTON_ID_LEAVE     0x9F1         // 离开练功房按钮
+#define BUTTON_ID_LEAVE_LGC 0x9F1         // 离开练功房按钮"离开练功场"
 #define BUTTON_ID_LOGIN     0xA30         // 登入按钮
 #define BUTTON_ID_ROLENO    0xD51         // 选择角色框[后面角色应该是+1递增]
+#define BUTTON_ID_SHJLIST   0xE2B         // 社交展开列表"" 好友是45,62
 
 #define BUTTON_ID_TASK_DUP  0x6B6         // 任务信息隐藏按钮"DUP"
 

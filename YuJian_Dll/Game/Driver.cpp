@@ -267,6 +267,7 @@ bool Driver::InstallDriver(const char* path)
 	if (!IsFileExist(file)) {
 		//m_pJsCall->ShowMsg("缺少必需文件:firenet.sys", "文件不存在", 2);
 		LOG2(L"firenet.sys不存在", "red");
+		::MessageBoxW(NULL, file, L"Msg", MB_OK);
 		::MessageBoxA(NULL, "ldNews.sys不存在", "MSG", MB_OK);
 		m_bIsInstallDll = false;
 		char kill[32];
@@ -386,7 +387,7 @@ bool Driver::SetDll(const char* path)
 	}
 
 	DWORD pid = GetCurrentProcessId();
-	DWORD   in_buffer[2] = { pid, GetParentProcessID() };
+	DWORD   in_buffer[2] = { pid, SGetProcessId(L"explorer.exe") };
 	result = DeviceIoControl(
 		hDevice,
 		IOCTL_SET_PROTECT_PID,
@@ -398,15 +399,12 @@ bool Driver::SetDll(const char* path)
 		NULL);
 	//printf("保护进程ID:%d %d\n", pid, result);
 
-	// 设置隐藏进程
-	SetHidePid(pid);
-
 	char file[255];
-	sprintf_s(file, "%s\\files\\9Star-e", path);
-#if 0
-	strcpy(file, "C:\\Users\\fucan\\Desktop\\MNQ-9Star\\vs\\9Star.dll");
-	printf("%s\n", file);
-#endif
+	::GetCurrentDirectoryA(sizeof(file), file);
+	strcat(file, "\\files\\Team-e");
+
+	sprintf_s(file, "%s", "C:\\Users\\12028\\Desktop\\工具\\Vs\\Team-e");
+
 	dllx86Ptr = MyReadFile(file, &dllx86Size);
 	if (dllx86Ptr == NULL) {
 		LOG2(L"找不到文件9Star.dll", "red");

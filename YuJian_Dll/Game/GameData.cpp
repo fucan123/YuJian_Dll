@@ -19,8 +19,24 @@ GameData::GameData(Game* p)
 	ZeroMemory(&m_DataAddr, sizeof(m_DataAddr));
 }
 
+// 获取角色字符
+bool GameData::GetRoleByPid(_account_* account, char* out, int len)
+{
+	DWORD h3drole = (DWORD)EnumModuleBaseAddr(account->GamePid, L"3drole.dll");
+	HANDLE hp = ::OpenProcess(PROCESS_ALL_ACCESS, FALSE, account->GamePid);
+	if (hp) {
+		SIZE_T r;
+		ReadProcessMemory(hp, (PVOID)(h3drole + ADDR_ROLE_NAME), out, len, &r);
+		CloseHandle(hp);
+	}
+	else {
+		::GetWindowTextA(account->Wnd.Role, out, len);
+	}
+	return false;
+}
+
 // 监听游戏
-int GameData::WatchGame()
+int GameData::WatchGame(bool first)
 {
 	int count = 0;
 
@@ -28,9 +44,38 @@ int GameData::WatchGame()
 	while (true) {
 		DWORD pids[10];
 		DWORD len = SGetProcessIds(L"soul.exe", pids, sizeof(pids) / sizeof(DWORD));
-		DbgPrint("游戏进程数量:%d\n", len);
-		LOGVARP2(log, "c0", L"游戏进程数量:%d", len);
+		if (first) {
+			DbgPrint("游戏进程数量:%d\n", len);
+			LOGVARP2(log, "c0", L"游戏进程数量:%d", len);
+		}
+		
 		for (int i = 0; i < len; i++) {
+			int flag = 0;
+			for (int j = 0; j < m_pGame->m_AccountList.size(); j++) {
+				Account* pa = m_pGame->m_AccountList[j];
+				if (pa->GamePid == pids[i]) {
+					if (!m_pGame->CheckStatus(pa, ACCSTA_ONLINE) || !pa->IsReady) { // 还未上线了或未准备了
+						flag = -1;
+						break;
+					}
+					if (pa->Addr.CoorX) { // 已搞了
+						flag = 1;
+						break;
+					}
+				}
+			}
+
+			if (flag == -1) {
+				continue;
+			}
+			if (flag == 1) {
+				count++;
+				continue;
+			}
+
+			if (!m_pGame->m_pButton->FindGameWnd(pids[i]))
+				continue;
+
 			ZeroMemory(&m_DataAddr, sizeof(m_DataAddr));
 
 			HWND gameWnd = m_pGame->m_pButton->FindGameWnd(pids[i]);
@@ -71,9 +116,11 @@ int GameData::WatchGame()
 				Account* account = m_pGame->GetAccount(user);
 				//Account* account = m_pGame->GetAccountByRole(role);
 				if (account && role) {
+					account->GamePid = pids[i];
 					account->Process = m_hGameProcess;
 					m_pAccountTmp = account;
 
+					account->Wnd.Game = m_pGame->m_pButton->FindGameWnd(pids[i]);
 					m_pGame->m_pGameProc->SwitchGameAccount(account);
 					ReadGameMemory(0x01);
 
@@ -88,14 +135,15 @@ int GameData::WatchGame()
 					account->Addr.ScreenX = m_DataAddr.ScreenX;
 					account->Addr.ScreenY = m_DataAddr.ScreenY;
 
-					account->Wnd.Game = m_pGame->m_pButton->FindGameWnd(pids[i]);
 					account->Wnd.Pic = ::FindWindowEx(account->Wnd.Game, NULL, NULL, NULL);
 					account->Wnd.Map = m_pGame->m_pButton->FindButtonWnd(account->Wnd.Game, STATIC_ID_MAP);
 					account->Wnd.PosX = m_pGame->m_pButton->FindButtonWnd(account->Wnd.Game, STATIC_ID_POS_X);
 					account->Wnd.PosY = m_pGame->m_pButton->FindButtonWnd(account->Wnd.Game, STATIC_ID_POS_Y);
 					
 					if (!m_DataAddr.Bag) {
-						::SetForegroundWindow(account->Wnd.Game);
+						if (first) {
+							::SetForegroundWindow(account->Wnd.Game);
+						}
 						
 						m_pGame->m_pItem->OpenBag();
 						Sleep(1000);
@@ -148,6 +196,82 @@ void GameData::FindGameWnd()
 	::EnumWindows(EnumProc, (LPARAM)this);
 }
 
+// 获得游戏信息
+void GameData::FindGameInfo(_account_* account)
+{
+	wchar_t log[64];
+	char role[128];
+	DWORD coor[2];
+
+	DWORD h3drole = (DWORD)EnumModuleBaseAddr(account->GamePid, L"3drole.dll");
+	m_hGameProcess = ::OpenProcess(PROCESS_ALL_ACCESS, FALSE, account->GamePid);
+	if (m_hGameProcess) {
+		SIZE_T readlen = 0;
+		char user[32] = { 0 };
+		ReadProcessMemory(m_hGameProcess, (PVOID)(h3drole + ADDR_ACCOUNT_NAME), user, sizeof(user), &readlen);
+		ReadProcessMemory(m_hGameProcess, (PVOID)(h3drole + ADDR_ROLE_NAME), role, sizeof(role), &readlen);
+		ReadProcessMemory(m_hGameProcess, (PVOID)(h3drole + ADDR_COOR_Y_OFFSET), coor, sizeof(coor), &readlen);
+
+		LOGVARP2(log, "c0", L"\n帐号:%hs 角色:%hs 坐标:%d,%d %d", user, role, coor[1], coor[0], account->GamePid);
+
+
+		account->Process = m_hGameProcess;
+		m_pAccountTmp = account;
+
+		account->Wnd.Game = m_pGame->m_pButton->FindGameWnd(account->GamePid);
+		m_pGame->m_pGameProc->SwitchGameAccount(account);
+		ReadGameMemory(0x01);
+
+		account->Addr.Account = h3drole + ADDR_ACCOUNT_NAME;
+		account->Addr.Role = h3drole + ADDR_ROLE_NAME;
+		account->Addr.CoorX = h3drole + ADDR_COOR_X_OFFSET;
+		account->Addr.CoorY = h3drole + ADDR_COOR_Y_OFFSET;
+		account->Addr.LifeMax = h3drole + ADDR_LIFEMAX_OFFSET;
+		account->Addr.Life = m_DataAddr.Life;
+		account->Addr.QuickMagicNum = m_DataAddr.QuickMagicNum;
+		account->Addr.QuickItemNum = m_DataAddr.QuickItemNum;
+		account->Addr.ScreenX = m_DataAddr.ScreenX;
+		account->Addr.ScreenY = m_DataAddr.ScreenY;
+
+		account->Wnd.Pic = ::FindWindowEx(account->Wnd.Game, NULL, NULL, NULL);
+		account->Wnd.Map = m_pGame->m_pButton->FindButtonWnd(account->Wnd.Game, STATIC_ID_MAP);
+		account->Wnd.PosX = m_pGame->m_pButton->FindButtonWnd(account->Wnd.Game, STATIC_ID_POS_X);
+		account->Wnd.PosY = m_pGame->m_pButton->FindButtonWnd(account->Wnd.Game, STATIC_ID_POS_Y);
+
+		if (!m_DataAddr.Bag) {
+			::SetForegroundWindow(account->Wnd.Game);
+
+			m_pGame->m_pItem->OpenBag();
+			Sleep(1000);
+			m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_BAG_ITEM, "MPC物品栏", 80, 10);
+			Sleep(1000);
+			m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_BAG_ITEM, "MPC物品栏", 80, 10);
+			Sleep(1000);
+			ReadGameMemory(0x01);
+			m_pGame->m_pItem->CloseBag();
+		}
+		account->Addr.Bag = m_DataAddr.Bag;
+
+		if (account->IsBig) {
+			if (!m_DataAddr.Storage) {
+				m_pGame->m_pItem->OpenStorage();
+				Sleep(1000);
+				m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_CKIN_ITEM, "存储物品栏", 10, 10);
+				Sleep(1000);
+				m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_CKIN_ITEM, "存储物品栏", 10, 10);
+				Sleep(1000);
+				ReadGameMemory(0x01);
+				m_pGame->m_pItem->CloseStorage();
+			}
+			account->Addr.Storage = m_DataAddr.Storage;
+		}
+	}
+	else {
+		DbgPrint("无权限获取进程[%d]\n", account->GamePid);
+		LOGVARP2(log, "c0", L"无权限获取进程[%d]", account->GamePid);
+	}
+}
+
 // 枚举窗口
 BOOL GameData::EnumProc(HWND hWnd, LPARAM lParam)
 {
@@ -198,6 +322,15 @@ bool GameData::IsInFBDoor(_account_* account)
 	return IsInArea(865, 500, 50, account);
 }
 
+bool GameData::IsTheMap(const char* map, _account_* account)
+{
+	account = account ? account : m_pGame->m_pBig;
+	char string[32];
+	::GetWindowTextA(account->Wnd.Map, string, sizeof(string));
+
+	return strstr(string, map) != nullptr;
+}
+
 // 获取人物首地址
 bool GameData::FindQuickAddr()
 {
@@ -242,7 +375,7 @@ bool GameData::FindLifeAddr()
 	};
 	DWORD address = 0;
 	if (SearchCode(codes, sizeof(codes) / sizeof(DWORD), &address, 1, 1)) {
-		m_DataAddr.Life = address + 0x18;
+		m_DataAddr.Life = address + 0x14;
 		DbgPrint("(%s)血量地址:%08X\n", m_pAccountTmp->Name, m_DataAddr.Life);
 		LOGVARN2(64, "blue", L"(%hs)血量地址:%08X", m_pAccountTmp->Name, m_DataAddr.Life);
 	}
@@ -372,18 +505,42 @@ bool GameData::ReadCoor(DWORD * x, DWORD * y, _account_* account)
 	pos_x = FormatCoor(account->Wnd.PosX);
 	pos_y = FormatCoor(account->Wnd.PosY);
 #else
-	if (!account->Addr.CoorX || !account->Addr.CoorY)
-		return false;
-
-	if (!ReadDwordMemory(account->Addr.CoorX, pos_x, account)) {
-		::printf("无法读取坐标X(%d) %08X\n", GetLastError(), account->Addr.CoorX);
-		return false;
+	if (!account->Addr.CoorX || !account->Addr.CoorY) {
+		pos_x = FormatCoor(account->Wnd.PosX);
+		pos_y = FormatCoor(account->Wnd.PosY);
 	}
-	if (!ReadDwordMemory(account->Addr.CoorY, pos_y, account)) {
-		::printf("无法读取坐标Y(%d) %08X\n", GetLastError(), account->Addr.CoorY);
-		return false;
+	else {
+		if (!ReadDwordMemory(account->Addr.CoorX, pos_x, account)) {
+			::printf("无法读取坐标X(%d) %08X\n", GetLastError(), account->Addr.CoorX);
+			return false;
+		}
+		if (!ReadDwordMemory(account->Addr.CoorY, pos_y, account)) {
+			::printf("无法读取坐标Y(%d) %08X\n", GetLastError(), account->Addr.CoorY);
+			return false;
+		}
 	}
 #endif
+
+	m_dwX = pos_x;
+	m_dwY = pos_y;
+
+	if (x) {
+		*x = pos_x;
+	}
+	if (y) {
+		*y = pos_y;
+	}
+
+	return true;
+}
+
+// 读取坐标
+bool GameData::ReadCoorByWnd(DWORD* x, DWORD* y, _account_* account)
+{
+	account = account ? account : m_pGame->m_pBig;
+
+	DWORD pos_x = FormatCoor(account->Wnd.PosX);
+	DWORD pos_y = FormatCoor(account->Wnd.PosY);
 
 	m_dwX = pos_x;
 	m_dwY = pos_y;
@@ -404,6 +561,7 @@ int GameData::FormatCoor(HWND hWnd)
 	int val = 0;
 	char text[128] = { 0 };
 	::GetWindowTextA(hWnd, text, sizeof(text));
+	//::printf("FormatCoor:%s.\n", text);
 	char* str = strstr(text, "}");
 	if (str) {
 		val = atoi(str + 1);

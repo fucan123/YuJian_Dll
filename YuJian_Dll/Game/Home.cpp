@@ -2,7 +2,7 @@
 #include "Game.h"
 #include "Driver.h"
 #include <time.h>
-#include <My/Common/MachineID.h>
+#include <My/Common/MachineID2.h>
 #include <My/Common/Des.h>
 #include <My/Common/Explode.h>
 
@@ -20,10 +20,10 @@ Home::Home(Game* p)
 
 	m_nVerifyNum = 0;
 
-	MachineID mac;
+	MachineID2 mac;
 	mac.GetMachineID(m_MachineId);
 	m_MachineId[32] = 0;
-	printf("机器码:%s\n", m_MachineId);
+	//printf("机器码:%s\n", m_MachineId);
 }
 
 // 设置是否免费

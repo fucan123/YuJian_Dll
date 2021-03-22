@@ -551,8 +551,6 @@ BOOL MCButton::EnumChildProc(HWND hWnd, LPARAM lParam)
 {
 	HWND* param = (HWND*)lParam;
 	HWND hWnd_Child = ::GetDlgItem(hWnd, (int)param[0]);
-	if (hWnd == (HWND)0x000F1CE6)
-		printf("hWnd:%08X\n", hWnd);
 
 	if (hWnd_Child) { // 找到了子窗口
 		//printf("hWnd_Child:%08X\n", hWnd_Child);

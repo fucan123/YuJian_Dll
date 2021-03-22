@@ -75,14 +75,16 @@ public:
 	void AgreenMsg(const char* name, HWND hwnd = NULL);
 	// 同意系统信息
 	int AgreenMsg(const char* name, int icon_index, bool click = false, HWND hwnd = NULL);
+	// 等待提示框
+	void WaitGameMenu(_account_* account);
 	// 神殿去雷鸣大陆流程
-	void GoLeiMing();
+	void GoLeiMing(_account_* account);
 	// 去领取项链
 	void GoGetXiangLian();
 	// 询问项链数量
 	_account_*  AskXiangLian();
 	// 去副本门口
-	void GoFBDoor(_account_* account);
+	void GoFBDoor(_account_* account, int num=0);
 	// 开启副本
 	_account_* OpenFB();
 	// 所有出副本big=大号要出去否
@@ -125,6 +127,8 @@ public:
 	int  CheckInNPCPos(_npc_coor_* p_npc, DWORD& click_x, DWORD& click_y, bool is_move = true);
 	// 获取点击NPC坐标
 	bool GetNPCClickPos(_npc_coor_* p_npc, DWORD pos_x, DWORD pos_y, DWORD& click_x, DWORD& click_y);
+	// 获取点击NPC坐标
+	bool GetNPCClickPos(DWORD cx, DWORD cy, DWORD ccx, DWORD ccy, DWORD ccx2, DWORD ccy2, DWORD pos_x, DWORD pos_y, DWORD& click_x, DWORD& click_y);
 	// 选择
 	void Select();
 	// 技能

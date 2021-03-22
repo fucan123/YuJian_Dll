@@ -191,100 +191,114 @@ void GameProc::SetForegroundWindow(_account_* account)
 	m_pGame->m_pButton->ClickPic(account->Wnd.Game, account->Wnd.Pic, 720, 450);
 }
 
-// 神殿去雷鸣大陆流程
-void GameProc::GoLeiMing()
+// 等待提示框
+void GameProc::WaitGameMenu(_account_* account)
 {
-#if 0
-	for (int i = 0; i < 10; i++) {
-		printf("%d:%d-%d\n", i + 1, 10 + i * 34, 20 + i* 34);
-	}
-	//m_pGame->m_pItem->CheckOut(m_pGame->m_pGameConf->m_stSell.Sells, m_pGame->m_pGameConf->m_stSell.Length);
-	while (false) {
-		m_pGame->m_pMagic->MagicIsOut("虚无空间");
-		printf("虚无空间:%d\n", m_pGame->m_pMagic->m_nPixelCount);
-		m_pGame->m_pMagic->MagicIsOut("星陨");
-		printf("星陨:%d\n", m_pGame->m_pMagic->m_nPixelCount);
-		m_pGame->m_pMagic->MagicIsOut("影魂契约");
-		printf("影魂契约:%d\n", m_pGame->m_pMagic->m_nPixelCount);
-		m_pGame->m_pMagic->MagicIsOut("最终审判");
-		printf("最终审判:%d\n", m_pGame->m_pMagic->m_nPixelCount);
+	LOG2(L"等待游戏菜单...", "c6");
+	time_t second = 15;
+	time_t s = time(nullptr);
+	while (true) {
+		Sleep(1000);
 
-		Sleep(3000);
-	}
-	
-	m_pGame->m_pItem->GetQuickYaoOrBaoNum(m_nYaoBao, m_nYao, m_pAccount);
-	while (true) Sleep(168);
-#endif
-#if 1
-	m_pGameStep->ResetStep(0, 0x02);
-	while (ExecStep(m_pGameStep->m_GoLeiMingStep)); // 出神殿
-#else
-	LOG2(L"等待领取经验层打开(按F1可取消等待)...", "c6");
-	for (int i = 0; true; i++) { // 出去练功场
-		if (m_bPause)
-			break;
+		time_t tl = time(nullptr) - s;
+		if (tl >= 15) {
+			LOG2(L"等待超时", "red");
+			return;
+		}
 
-		if (m_pGame->m_pTalk->LianGongChangIsOpen()) {
-			Sleep(500);
-			LOG2(L"领取经验.", "c6");
-			Click(700, 596, 800, 620); // 领取经验
+		if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "x")) {
+			LOG2(L"关闭游戏菜单...", "c0");
 			Sleep(1000);
-			if (!m_pGame->m_pTalk->LianGongChangIsOpen())
+			if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_SURE, "确定"))
+				Sleep(1000);
+			if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CANCEL))
+				Sleep(1000);
+			if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU))
+				Sleep(1000);
+			return;
+		}
+	}
+
+}
+
+// 神殿去雷鸣大陆流程
+void GameProc::GoLeiMing(_account_* account)
+{
+	if (!account->Wnd.Map) {
+		account->Wnd.Map = m_pGame->m_pButton->FindButtonWnd(account->Wnd.Game, STATIC_ID_MAP);
+		if (!account->Wnd.Map)
+			return;
+	}
+
+	wchar_t log[64];
+	char map[32];
+	::GetWindowTextA(account->Wnd.Map, map, sizeof(map));
+	DbgPrint("%hs Say 地图:%hs\n", account->Name, map);
+	LOGVARP2(log, "c6", L"%hs Say 地图:%hs", account->Name, map);
+	if (!m_pGame->m_pGameData->IsTheMap("神殿", account))
+		return;
+
+	Sleep(2000);
+	// 62,59 660,588 666,600 罗德·兰
+	// 602,305 810,280 815,300
+	// 60,185 我想去雷鸣交易行
+	DbgPrint("%hs Say 准备离开神殿\n", account->Name);
+	LOGVARP2(log, "c6", L"%hs Say 准备离开神殿", account->Name);
+	DWORD pos_x, pos_y, click_x, click_y;
+	if (!m_pGame->m_pButton->FindButtonWnd(account->Wnd.Game, BUTTON_ID_LEAVE_LGC, "离开练功场")) {
+		Sleep(6000);
+		while (true) {
+			m_pGame->m_pGameData->ReadCoorByWnd(&pos_x, &pos_y, account);
+			GetNPCClickPos(62, 59, 660, 588, 666, 600, pos_x, pos_y, click_x, click_y);
+			DbgPrint("%hs Say 对话: 罗德·兰 %d,%d->%d,%d", account->Name, pos_x, pos_y, click_x, click_y);
+			LOGVARP2(log, "c6", L"%hs Say 对话: 罗德·兰 %d,%d->%d,%d", account->Name, pos_x, pos_y, click_x, click_y);
+
+			m_pGame->m_pButton->ClickPic(account->Wnd.Game, account->Wnd.Pic, click_x, click_y);
+			Sleep(1000);
+			if (m_pGame->m_pButton->FindButtonWnd(account->Wnd.Game, BUTTON_ID_LEAVE_LGC, "离开练功场"))
 				break;
+			if (!m_pGame->m_pGameData->IsTheMap("神殿", account))
+				return;
 		}
-		else {
-			int max_wait = 50;
-			if (i >= max_wait && (i&0x01) == 0x00) {
-				if (m_pGame->m_pTalk->IsInGamePic() && !m_pGame->m_pGameData->IsInShenYu(m_pAccount)) {
-					LOG2(L"移动到62,59.", "c6");
-					Sleep(1000);
-					LOG2(L"对话罗德·兰.", "c6");
-					Click(580, 535, 586, 558); // 罗德·兰
-					Sleep(1000);
-				}
-			}
-			else {
-				if ((i % 10) == 0) {
-					LOGVARN2(32, "cb", L"%d秒后对话罗德·兰.", max_wait - i)
-				}
-			}
-		}
-
-		Sleep(1000);
 	}
 
-	LOG2(L"等待进入遗忘神域(按F1取消等待)...", "c6");
-	while (!m_pGame->m_pGameData->IsInShenYu(m_pAccount)) {
-		if (m_bPause)
+	Sleep(800);
+	DbgPrint("%hs Say 离开练功场\n", account->Name);
+	LOGVARP2(log, "c6", L"%hs Say 离开练功场", account->Name);
+	while (true) {
+		m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_LEAVE_LGC, "离开练功场");
+		Sleep(800);
+		if (m_pGame->m_pGameData->IsTheMap("遗忘神域", account))
 			break;
+	}
+
+	Sleep(6000);
+	DbgPrint("%hs Say 准备离开神域\n", account->Name);
+	LOGVARP2(log, "c6", L"%hs Say 准备离开神域", account->Name);
+	while (true) {
+		m_pGame->m_pGameData->ReadCoorByWnd(&pos_x, &pos_y, account);
+		GetNPCClickPos(602, 305, 810, 280, 815, 300, pos_x, pos_y, click_x, click_y);
+		LOGVARP2(log, "c6", L"%hs Say 对话: 娜塔莉 %d,%d->%d,%d", account->Name, pos_x, pos_y, click_x, click_y);
+		LOGVARP2(log, "c6", L"%hs Say 对话: 娜塔莉 %d,%d->%d,%d", account->Name, pos_x, pos_y, click_x, click_y);
+
+		m_pGame->m_pButton->ClickPic(account->Wnd.Game, account->Wnd.Pic, click_x, click_y);
+		Sleep(300);
+		if (!m_pGame->m_pTalk->WaitTalkOpen(account->Wnd.Pic)) {
+			if (!m_pGame->m_pGameData->IsTheMap("遗忘神域", account))
+				break;
+
+			continue;
+		}
 
 		Sleep(500);
-	}
-	while (m_pGame->m_pGameData->IsInShenYu(m_pAccount)) {
-		if (m_bPause)
+		m_pGame->m_pTalk->Select("我要去雷鸣交易行", account->Wnd.Pic, true);
+		Sleep(1000);
+		if (!m_pGame->m_pGameData->IsTheMap("遗忘神域", account))
 			break;
-
-		while (!m_pGame->m_pTalk->IsInGamePic())
-			Sleep(500);
-
-		Sleep(1000);
-		LOG2(L"对话娜塔莉.", "c6");
-		Click(716, 200, 726, 206); // 点击娜塔莉
-		Sleep(500);
-		if (m_pGame->m_pTalk->WaitTalkOpen(0x00)) {
-			LOG2(L"去雷鸣交易行.", "c6");
-			Sleep(500);
-			m_pGame->m_pTalk->Select(0x00, false);
-			LOG2(L"等待进入雷鸣大陆...", "c6");
-			Sleep(1000);
-		}
 	}
-	while (!m_pGame->m_pTalk->IsInGamePic())
-		Sleep(1000);
 
-	Sleep(1000);
-	LOG2(L"已到达雷鸣大陆.", "c6");
-#endif
+	DbgPrint("%hs Say 已抵达雷鸣交易行\n", account->Name);
+	LOGVARP2(log, "c0", L"%hs Say 已抵达雷鸣交易行", account->Name);
 }
 
 // 去领取项链
@@ -323,7 +337,7 @@ _account_* GameProc::AskXiangLian()
 }
 
 // 去副本门口
-void GameProc::GoFBDoor(_account_* account)
+void GameProc::GoFBDoor(_account_* account, int num)
 {
 	DbgPrint("%hs去副本门口.\n", account->Name);
 	LOGVARN2(32, "c0 b", L"%hs去副本门口.", account->Name);
@@ -336,7 +350,7 @@ void GameProc::GoFBDoor(_account_* account)
 
 	int i = 0;
 	while (true) {
-		if (m_bPause || m_bAtFB) 
+		if ((m_bPause || m_bAtFB) && num == 0) 
 			break;
 
 		this->SetForegroundWindow(account);
@@ -353,7 +367,13 @@ void GameProc::GoFBDoor(_account_* account)
 			DbgPrint("%s已到达副本门口\n", account->Name);
 			LOGVARN2(64, "green", L"%hs已到达门口", account->Name);
 			break;
-		}	
+		}
+
+		if (num > 0 && i == num) {
+			DbgPrint("%s Say 未能到达副本门口或没有星辰之眼\n", account->Name);
+			LOGVARN2(64, "red", L"%hs Say 未能到达副本门口或没有星辰之眼", account->Name);
+			break;
+		}
 	}
 }
 
@@ -364,12 +384,37 @@ _account_* GameProc::OpenFB()
 	if (!account) {
 		DbgPrint("没有人有项链, 无法进入副本\n");
 		LOG2(L"没有人有项链, 无法进入副本", "red");
-		return nullptr;
+
+		LOG2(L"----------------------------------------------------", "c3");
+		LOG2(L"准备Next..........", "blue b");
+
+		account = m_pGame->GetNextLoginAccount();
+		if (!account) {
+			DbgPrint("没有账号可以登录\n");
+			LOG2(L"没有账号可以登录", "red");
+			return nullptr;
+		}
+
+		m_pGame->AutoLogout();
+		Sleep(1680);
+		m_pGame->OpenGame(account->Index);
+		m_pGame->m_pGameData->WatchGame();
+
+		return OpenFB();
 	}
 
 	this->SetForegroundWindow(account);
 	SwitchGameAccount(account);
 	m_pGame->m_pButton->HideActivity(account->Wnd.Game);
+	if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "C")) {
+		Sleep(500);
+	}
+	else if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "x")) {
+		Sleep(500);
+	}
+	else if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "X")) {
+		Sleep(500);
+	}
 
 	if (IsInFB(account)) {
 		DbgPrint("%hs已经在副本.\n", account->Name);
@@ -419,11 +464,22 @@ _account_* GameProc::OpenFB()
 
 				DbgPrint("(%hs)对话没有打开.", account->Name);
 				LOGVARP2(log, "red", L"(%hs)对话没有打开.", account->Name);
+				if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CANCEL)) {
+					Sleep(500);
+				}
+				if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "X")) {
+					Sleep(500);
+				}
+				else if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "x")) {
+					Sleep(500);
+				}
 				continue;
 			}
 
+#if 1
 			Sleep(1500);
 			m_pGame->m_pTalk->Select("挑战九星副本(阿拉玛)", account->Wnd.Pic, true);
+#endif
 
 			Sleep(1500);
 			if (IsBigOpenFB()) {
@@ -435,7 +491,23 @@ _account_* GameProc::OpenFB()
 
 			Sleep(1500); // 800
 			m_pGame->m_pTalk->Select("进入卡利亚堡", account->Wnd.Pic, true);
-			Sleep(1500); // 1000
+			Sleep(1000); // 1000
+			if (m_pGame->m_pTalk->NPCTalkStatus(account->Wnd.Pic)) {
+				bool again_open = false;
+				for (int xb = 0; xb < 3; xb++) {
+					m_pGame->m_pTalk->Select("进入卡利亚堡", account->Wnd.Pic, true);
+					Sleep(1000);
+					again_open = false;
+					if (m_pGame->m_pTalk->NPCTalkStatus(account->Wnd.Pic)) {
+						again_open = true;
+					}
+				}
+				if (again_open) {
+					m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "C");
+					continue;
+				}
+			}
+
 			if (m_pGame->m_pTalk->NPCTalkStatus(account->Wnd.Pic)) {
 				m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "C");
 				Sleep(500);
@@ -649,7 +721,7 @@ void GameProc::GoInTeamPos(_account_* account)
 	SwitchGameAccount(account);
 
 	if (m_pGame->m_pGameData->IsInShenDian(account)) // 先离开神殿
-		GoLeiMing();
+		GoLeiMing(account);
 
 	if (!m_pGame->m_pGameData->IsInFBDoor(account)) {
 		GoFBDoor(account);	
@@ -717,15 +789,30 @@ void GameProc::ViteInTeam()
 // 入队
 void GameProc::InTeam(_account_* account)
 {
+	::SetForegroundWindow(account->Wnd.Game);
+	Sleep(1000);
+
 	wchar_t log[64];
-	DbgPrint("%s准备同意入队\n", account->Name);
-	LOGVARP2(log, "blue b", L"%hs准备同意入队\n", account->Name);
-	SwitchGameAccount(account);
-	SwitchGameWnd(account->Mnq->Wnd);
-	SetForegroundWindow(account);
-	AgreenMsg("入队旗帜图标");
-	DbgPrint("%s完成同意入队\n", account->Name);
-	LOGVARP2(log, "blue b", L"%hs完成同意入队", account->Name);
+	DbgPrint("%s Say 准备同意入队\n", account->Name);
+	LOGVARP2(log, "blue b", L"%hs Say 准备同意入队", account->Name);
+
+
+	for (int i = 1; i <= 5; i++) {
+		DbgPrint("%hs Say 第%d次寻找入队旗帜按钮\n", account->Name, i);
+		LOGVARP2(log, "blue b", L"%hs Say 第%d次寻找入队旗帜按钮", account->Name, i);
+		if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_TEAMFLAG))
+			break;
+
+		Sleep(1000);
+	}
+
+	Sleep(1000);
+	m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_INTEAM, "同意");
+	Sleep(1500);
+	m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU);
+
+	DbgPrint("%s Say 完成同意入队\n", account->Name);
+	LOGVARP2(log, "blue b", L"%hs Say 完成同意入队", account->Name);
 }
 
 // 邀请进入副本
@@ -831,19 +918,20 @@ int GameProc::AgreenMsg(const char* name, int icon_index, bool click, HWND hwnd)
 // 是否在副本
 bool GameProc::IsInFB(_account_* account)
 {
-	if (!account || !account->Wnd.Map) {
-		DWORD x = 0, y = 0;
-		m_pGame->m_pGameData->ReadCoor(&x, &y, account);
-		if (x >= 882 && x <= 930 && y >= 1055 && y < 1115) // 刚进副本区域
-			return true;
-
-		return false;
-	}
-	else {
+	if (account && account->Wnd.Map) {
 		char text[128] = { 0 };
 		::GetWindowTextA(account->Wnd.Map, text, sizeof(text));
-		return strstr(text, "阿拉玛的哭泣") != nullptr;
+		LOGVARN2(32, "red", L"地图:%hs", text);
+		if (strstr(text, "阿拉玛的哭泣"))
+			return true;
 	}
+
+	DWORD x = 0, y = 0;
+	m_pGame->m_pGameData->ReadCoor(&x, &y, account);
+	if (x >= 882 && x <= 930 && y >= 1055 && y < 1115) // 刚进副本区域
+		return true;
+
+	return false;
 }
 
 // 执行副本流程
@@ -2083,6 +2171,21 @@ bool GameProc::GetNPCClickPos(_npc_coor_* p_npc, DWORD pos_x, DWORD pos_y, DWORD
 	}
 
 	return true;
+}
+
+// 获取点击NPC坐标
+bool GameProc::GetNPCClickPos(DWORD cx, DWORD cy, DWORD ccx, DWORD ccy, DWORD ccx2, DWORD ccy2, DWORD pos_x, DWORD pos_y, DWORD& click_x, DWORD& click_y)
+{
+	_npc_coor_ npcCoor;
+	npcCoor.Point[0].MvX = cx;
+	npcCoor.Point[0].MvY = cy;
+	npcCoor.Point[0].ClkX = ccx;
+	npcCoor.Point[0].ClkY = ccy;
+	npcCoor.Point[0].ClkX2 = ccx2;
+	npcCoor.Point[0].ClkY2 = ccy2;
+	npcCoor.Length = 1;
+
+	return GetNPCClickPos(&npcCoor, pos_x, pos_y, click_x, click_y);
 }
 
 // 选择

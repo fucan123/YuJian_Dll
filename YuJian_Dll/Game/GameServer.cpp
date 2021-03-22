@@ -109,7 +109,7 @@ void GameServer::Open(const char* data, int len)
 void GameServer::Login(_account_ * p)
 {
 	SetForegroundWindow(p->GameWnd);
-	m_pGame->Login(p);
+	m_pGame->Login(p, 0);
 }
 
 // пео╒

@@ -5,13 +5,13 @@
 
 #define IS_READ_MEM         0x0000001     // 是否开启MEM模式
 
-#define ADDR_ACCOUNT_NAME   0x114B248     // 登录帐号名称
-#define ADDR_ROLE_NAME      0x1185370     // 游戏角色名称
+#define ADDR_ACCOUNT_NAME   0x147C4D8     // 登录帐号名称
+#define ADDR_ROLE_NAME      0x14B6E50     // 游戏角色名称
 #define ADDR_SERVER_NAME    0x11BD7E4     // 游戏区服名称
-#define ADDR_COOR_X_OFFSET  0x11CE754     // X坐标地址在模块里面的偏移[MOD_3drole]
-#define ADDR_COOR_Y_OFFSET  0x11CE750     // Y坐标地址在模块里面的偏移[MOD_3drole]
-#define ADDR_LIFE_OFFSET    0x11852A0     // 血量地址在模块里面的偏移[MOD_3drole]
-#define ADDR_LIFEMAX_OFFSET 0x11852A0     // 血量上限地址在模块里面的偏移[MOD_3drole]
+#define ADDR_COOR_X_OFFSET  0x1500D2C     // X坐标地址在模块里面的偏移[MOD_3drole]
+#define ADDR_COOR_Y_OFFSET  0x1500D28     // Y坐标地址在模块里面的偏移[MOD_3drole]
+#define ADDR_LIFE_OFFSET    0x14B6D80     // 血量地址在模块里面的偏移[MOD_3drole]
+#define ADDR_LIFEMAX_OFFSET 0x14B6D84     // 血量上限地址在模块里面的偏移[MOD_3drole]
 
 #define SCREEN_X 1440 // 屏幕的宽度
 #define SCREEN_Y 900  // 屏幕的高度
@@ -111,11 +111,14 @@ class GameData
 public:
 	GameData(Game* p);
 
-	
+	// 获取角色字符
+	bool GetRoleByPid(_account_* account, char* out, int len);
 	// 监听游戏
-	int  WatchGame();
+	int  WatchGame(bool first=true);
 	// 获取游戏窗口
 	void FindGameWnd();
+	// 获取游戏信息
+	void FindGameInfo(_account_* account);
 	// 枚举窗口
 	static BOOL CALLBACK EnumProc(HWND hWnd, LPARAM lParam);
 
@@ -130,6 +133,9 @@ public:
 	bool IsInShenYu(_account_* account = nullptr);
 	// 是否在副本门口
 	bool IsInFBDoor(_account_* account=nullptr);
+
+	// 是否是那地图
+	bool IsTheMap(const char* map, _account_* account = nullptr);
 
 	// 获取快捷栏上面数量
 	bool FindQuickAddr();
@@ -148,6 +154,8 @@ public:
 	bool ReadName(char* name, _account_* account=nullptr);
 	// 读取坐标
 	bool ReadCoor(DWORD* x=nullptr, DWORD* y=nullptr, _account_* account=nullptr);
+	// 读取坐标
+	bool ReadCoorByWnd(DWORD* x=nullptr, DWORD* y=nullptr, _account_* account=nullptr);
 	// 解析坐标数据
 	int  FormatCoor(HWND hWnd);
 	// 获取屏幕坐标

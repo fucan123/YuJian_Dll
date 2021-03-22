@@ -85,14 +85,23 @@ LRESULT KeyHookProc(int nCode, WPARAM wParam, LPARAM lParam)
 		UCHAR vKey = (UCHAR)p->vkCode;
 		if (vKey == 'P') {
 			game.m_pGameProc->m_bPause = true;
-			DbgPrint("游戏暂停\n");
-			game.AddUILog(L"游戏暂停", "red");
+			if (!game.m_bLoging) {
+				DbgPrint("游戏暂停\n");
+				game.AddUILog(L"游戏暂停", "red");
+			}
 		}
 		if (vKey == 'C') {
 			game.m_pGameProc->m_bPause = false;
-			DbgPrint("游戏继续\n");
-			game.AddUILog(L"游戏继续", "green");
+			if (!game.m_bLoging) {
+				DbgPrint("游戏继续\n");
+				game.AddUILog(L"游戏继续", "green");
+			}
 		}
+#if ISCMD == 1
+		if (vKey == VK_F10) {
+			CreateThread(NULL, NULL, OpenGame, (LPVOID)-1, NULL, NULL);
+		}
+#endif
 	}
 
 	return CallNextHookEx(g_hook, nCode, wParam, lParam);
@@ -110,6 +119,10 @@ DLLEXPORT void WINAPI EntryIn(HWND hWnd, const char* conf_path)
 	pfnNtQuerySetInformationThread f = (pfnNtQuerySetInformationThread)GetNtdllProcAddress("ZwSetInformationThread");
 	NTSTATUS sta = f(GetCurrentThread(), ThreadHideFromDebugger, NULL, 0);
 	//::printf("sta:%d\n", sta);
+#endif
+
+#if ISCMD == 0
+	CreateThread(NULL, NULL, InstallKeyProc, NULL, NULL, NULL);
 #endif
 
 	ExportDllFunc** p2 = (ExportDllFunc**)&conf_path[230];
@@ -189,7 +202,8 @@ int WINAPI Game_InstallDll()
 // 打开游戏 index[-2=停止 -1=自动登录 大于-1=账号索引]
 int WINAPI Game_OpenGame(int index, int close_all)
 {
-	return game.OpenGame(index, close_all);
+	CreateThread(NULL, NULL, OpenGame, (LPVOID)index, NULL, NULL);
+	return 168;
 }
 
 // 关闭游戏机
@@ -237,6 +251,12 @@ int WINAPI Game_SelectFBRecord(char*** result, int* col)
 DLLEXPORT void WINAPI Talk(const char * text, int type)
 {
 	game.CallTalk(text, type);
+}
+
+// 打开游戏
+DWORD WINAPI OpenGame(LPVOID param)
+{
+	return game.OpenGame((int)param, false);
 }
 
 // 玩游戏
