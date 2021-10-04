@@ -120,6 +120,11 @@ void Item::UseYao(int num, bool use_yaobao, int sleep_ms)
 				break;
 		}
 
+		int yaobao = 0, yao = 0;
+		GetQuickYaoOrBaoNum(yaobao, yao);
+		if (yao <= 1)
+			break;
+
 		m_pGame->m_pButton->Key('1'); // 1键
 		Sleep(sleep_ms);
 	}
@@ -132,7 +137,7 @@ bool Item::UseYaoBao()
 	GetQuickYaoOrBaoNum(yaobao, yao);
 	if (yaobao > 1) {
 		m_pGame->m_pButton->Key('2'); // 2键
-		Sleep(200);
+		Sleep(350);
 	}
 	
 	return yaobao > 1;
@@ -174,7 +179,7 @@ bool Item::IsNeedUseYaoBao()
 {
 	int yao, yaobao;
 	GetQuickYaoOrBaoNum(yaobao, yao);
-	if (yao <= 3 && yaobao > 1)
+	if (yao < 5 && yaobao > 1)
 		return true;
 
 	return false;
@@ -601,7 +606,7 @@ void Item::UseItem(const char* name, int x, int y)
 #if 1
 	if (m_pGame->m_pTalk->WaitTalkOpen(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic)) {
 		m_pGame->m_pTalk->Select("活动.全部直接合成+1或+2", m_pGame->m_pGameProc->m_pAccount->Wnd.Pic);
-		Sleep(500);
+		Sleep(800);
 		m_pGame->m_pTalk->Select("活动.全部直接合成+1或+2.确定", m_pGame->m_pGameProc->m_pAccount->Wnd.Pic);
 	}
 #endif
@@ -819,6 +824,7 @@ void Item::CheckIn()
 	}
 #else
 
+	ITEM_TYPE type_qiu = (ITEM_TYPE)m_pGame->m_pGameConf->TransFormItemType("特制经验球礼包");
 	int pet_yao_1 = 0, pet_yao_2 = 1;
 	for (int i = 0; i <= 5; i++) {
 		if (m_pGame->m_pGameProc->m_bPause)
@@ -837,7 +843,8 @@ void Item::CheckIn()
 
 			ReadBagItem(bag_items, sizeof(bag_items));
 			for (int n = 0; n < sizeof(bag_items) / sizeof(ITEM_TYPE); n++) {
-				if (bag_items[n] && bag_items[n] == items[idx].Type) {
+				if (bag_items[n] &&
+					(bag_items[n] == items[idx].Type || bag_items[n] == type_qiu)) {
 					int click_x, click_y;
 					GetBagClickPos(n, click_x, click_y);
 
@@ -857,6 +864,61 @@ void Item::CheckIn()
 			break;
 	}
 #endif
+
+	Sleep(200);
+	CloseStorage();
+	Sleep(300);
+
+	_tm = GetTickCount() - _tm;
+	DbgPrint("存物用时:%.2f秒, %d毫秒\n", (float)_tm / 1000.0f, _tm);
+	LOGVARN2(64, "c0", L"存物用时:%d秒, %d毫秒", _tm / 1000, _tm);
+}
+
+// 存入窗口
+void Item::CheckInOne(const char* name)
+{
+	DbgPrint("存物\n");
+	LOG2(L"存物", "c0");
+	DWORD _tm = GetTickCount();
+
+	OpenStorage();
+	Sleep(1000);
+
+	m_pGame->m_pButton->MouseMovePos(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, 888, 960);
+	ITEM_TYPE type = (ITEM_TYPE)m_pGame->m_pGameConf->TransFormItemType(name);
+	for (int i = 0; i < 2; i++) {
+		if (m_pGame->m_pGameProc->m_bPause)
+			break;
+
+		if (SlideBag(i)) // 滑动背包
+			Sleep(1000);
+
+		for (int z = 0; z < 30; z++) {
+			bool has_item = false;
+			ITEM_TYPE bag_items[40];
+			ReadBagItem(bag_items, sizeof(bag_items));
+			for (int n = 0; n < sizeof(bag_items) / sizeof(ITEM_TYPE); n++) {
+				if (bag_items[n] && bag_items[n] == type) {
+					has_item = true;
+
+					int click_x, click_y;
+					GetBagClickPos(n, click_x, click_y);
+
+					LOGVARN2(64, "c0", L"存物:%hs %d,%d(%d)", name, click_x, click_y, n);
+					m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+						BUTTON_ID_BAG_ITEM, "MPC物品栏", click_x, click_y, 0xff, false);
+					Sleep(1500);
+
+					break;
+				}
+			}
+			if (!has_item)
+				break;
+		}
+
+		if (!BagNeedPageDown())
+			break;
+	}
 
 	Sleep(200);
 	CloseStorage();
@@ -1082,9 +1144,9 @@ int Item::CheckOutOne(const char * name, bool open, bool close)
 }
 
 // 获取背包物品数量
-int Item::GetBagItemCount(const char* name)
+int Item::GetBagItemCount(const char* name, int* klyb, int* qiu)
 {
-	int count = 0;
+	int count = 0, yb_count = 0, qiu_count = 0;
 	OpenBag();
 	Sleep(1000);
 
@@ -1109,6 +1171,8 @@ int Item::GetBagItemCount(const char* name)
 	}
 #else
 	ITEM_TYPE type = (ITEM_TYPE)m_pGame->m_pGameConf->TransFormItemType(name);
+	ITEM_TYPE type_yb = (ITEM_TYPE)m_pGame->m_pGameConf->TransFormItemType("卡利亚堡钥匙");
+	ITEM_TYPE type_qiu = (ITEM_TYPE)m_pGame->m_pGameConf->TransFormItemType("特制经验球礼包");
 	for (int i = 0; i < 5; i++) {
 		if (SlideBag(i)) // 滑动背包
 			Sleep(1000);
@@ -1118,6 +1182,10 @@ int Item::GetBagItemCount(const char* name)
 		for (int n = 0; n < sizeof(bag_items) / sizeof(ITEM_TYPE); n++) {
 			if (bag_items[n] && bag_items[n] == type)
 				count++;
+			if (bag_items[n] && bag_items[n] == type_yb)
+				yb_count++;
+			if (bag_items[n] && bag_items[n] == type_qiu)
+				qiu_count++;
 		}
 
 		if (!BagNeedPageDown())
@@ -1128,6 +1196,12 @@ int Item::GetBagItemCount(const char* name)
 	Sleep(200);
 	CloseBag();
 
+	if (klyb) {
+		*klyb = yb_count;
+	}
+	if (qiu) {
+		*qiu = qiu_count;
+	}
 	return count;
 }
 
@@ -1147,7 +1221,7 @@ int Item::GetQuickYaoOrBaoNum(int& yaobao, int& yao, _account_* account)
 	yao = data[0];
 	yaobao = data[1];
 #endif
-	//DbgPrint("药包数量:%d 药数量:%d\n", yaobao, yao);
+	::printf("药包数量:%d 药数量:%d\n", yaobao, yao);
 
 	return 0;
 }

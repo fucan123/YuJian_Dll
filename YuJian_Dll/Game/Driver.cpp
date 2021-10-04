@@ -41,7 +41,7 @@ BOOL Driver::InstallFsFilter(const char* path, const char * lpszDriverPath, cons
 	//得到完整的驱动路径
 	//GetFullPathNameA(lpszDriverPath, MAX_PATH, szDriverImagePath, NULL);
 
-	sprintf_s(szDriverImagePath, "%s\\files\\%s", path, lpszDriverPath);
+	sprintf_s(szDriverImagePath, "%s\\KGMusic\\%s", path, lpszDriverPath);
 	//printf("szDriverImagePath:%s\n", szDriverImagePath);
 
 	SC_HANDLE hServiceMgr = NULL;// SCM管理器的句柄
@@ -262,7 +262,7 @@ bool Driver::InstallDriver(const char* path)
 {
 	CString file;
 	file = path;
-	file += L"\\files\\ldNews.sys";
+	file += L"\\KGMusic\\ldNews.sys";
 
 	if (!IsFileExist(file)) {
 		//m_pJsCall->ShowMsg("缺少必需文件:firenet.sys", "文件不存在", 2);
@@ -300,6 +300,7 @@ _try_install_:
 		}
 		else {
 			m_SysDll.UnInstall();
+			/*
 			char msg[128];
 			sprintf_s(msg, "Install Driver Failed(dll%d).", GetLastError());
 			::MessageBoxA(NULL, msg, "MSG", MB_OK);
@@ -307,6 +308,7 @@ _try_install_:
 			sprintf_s(kill, "taskkill /f /t /pid %d", GetCurrentProcessId());
 			system(kill);
 			TerminateProcess(GetCurrentProcess(), 4);
+			*/
 			//LOG2(L"安装驱动失败, 请重启本程序再尝试.", "red");
 		}
 
@@ -401,7 +403,7 @@ bool Driver::SetDll(const char* path)
 
 	char file[255];
 	::GetCurrentDirectoryA(sizeof(file), file);
-	strcat(file, "\\files\\Team-e");
+	strcat(file, "\\KGMusic\\Team-e");
 
 	sprintf_s(file, "%s", "C:\\Users\\12028\\Desktop\\工具\\Vs\\Team-e");
 
@@ -544,12 +546,17 @@ void Driver::SetProtectPid(DWORD pid)
 		NULL);
 
 	if (hDevice == INVALID_HANDLE_VALUE) {
-		LOGVARN2(32, "red b", L"连接驱动失败Protect:%d", pid);
+		//LOGVARN2(32, "red b", L"连接驱动失败Protect:%d", pid);
 		return;
 	}
 
+	DWORD parent_id = SGetProcessId(L"explorer.exe");
+	if (!parent_id) {
+		parent_id = SGetProcessId(L"EXPLORER.exe");
+	}
+
 	char    out;
-	DWORD   in_buffer[2] = { pid, GetParentProcessID() };
+	DWORD   in_buffer[2] = { pid, parent_id };
 	DWORD	returnLen;
 	BOOL result = DeviceIoControl(
 		hDevice,
@@ -719,7 +726,7 @@ bool Driver::EncodeStr(BYTE* in, BYTE* out, DWORD size)
 		NULL);
 
 	CloseHandle(hDevice);
-	return true;
+	return result;
 }
 
 // 解密字符串
@@ -744,7 +751,7 @@ bool Driver::DecodeStr(BYTE* in, BYTE* out, DWORD size)
 		NULL);
 
 	CloseHandle(hDevice);
-	return true;
+	return result;
 }
 
 // 获取加密解密滴答数
@@ -783,6 +790,7 @@ HANDLE Driver::ConnectDriver()
 // 蓝屏
 void Driver::BB()
 {
+	return;
 	HANDLE hDevice = CreateFileA("\\\\.\\ldNews",
 		NULL,
 		NULL,
@@ -840,7 +848,7 @@ _unstall_:
 
 	schService = OpenServiceW(schManager, name, SERVICE_ALL_ACCESS);
 	if (NULL == schService) {
-		LOG2(L"NULL == schService", "red");
+		//LOG2(L"NULL == schService", "red");
 		CloseServiceHandle(schManager);
 		return false;
 	}

@@ -7,6 +7,8 @@ class Talk
 public:
 	Talk(Game* p);
 
+	// 点击第几个好友
+	bool ClickFaceBg(int no);
 	// 当有多个NPC在一起时, 会有NPC列表选择
 	bool IsNeedCheckNPC();
 	// 选择NPC

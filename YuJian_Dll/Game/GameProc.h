@@ -60,9 +60,9 @@ public:
 	// 去入队坐标
 	void GoInTeamPos(_account_* account);
 	// 创建队伍
-	void CreateTeam();
+	void CreateTeam(_account_* account);
 	// 邀请入队
-	void ViteInTeam();
+	void ViteInTeam(_account_* account);
 	// 入队
 	void InTeam(_account_* account);
 	// 邀请进入副本
@@ -80,13 +80,13 @@ public:
 	// 神殿去雷鸣大陆流程
 	void GoLeiMing(_account_* account);
 	// 去领取项链
-	void GoGetXiangLian();
+	void GoGetXiangLian(_account_* account);
 	// 询问项链数量
 	_account_*  AskXiangLian();
 	// 去副本门口
 	void GoFBDoor(_account_* account, int num=0);
 	// 开启副本
-	_account_* OpenFB();
+	_account_* OpenFB(bool go_leiming=false);
 	// 所有出副本big=大号要出去否
 	void AllOutFB(bool big = false);
 	// 出副本

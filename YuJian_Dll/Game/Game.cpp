@@ -41,7 +41,7 @@ void Game::Init(HWND hWnd, const char* conf_path)
 
 	char db_file[255];
 	strcpy(db_file, m_chPath);
-	strcat(db_file, "\\data\\data.db");
+	strcat(db_file, "\\Cache\\a.db");
 	char* db_file_utf8 = GB23122Utf8(db_file);
 	m_pSqlite = new Sqlite(db_file_utf8);
 	delete db_file_utf8;
@@ -76,12 +76,13 @@ void Game::Init(HWND hWnd, const char* conf_path)
 
 	char pixel_file[255];
 	strcpy(pixel_file, m_chPath);
-	strcat(pixel_file, "\\data\\pixel.ini");
+	strcat(pixel_file, "\\Cache\\p.ini");
 	m_pPrintScreen = new PrintScreen(this, pixel_file);
 
 	CheckDB();
 
 	::ZeroMemory(&m_Setting, sizeof(m_Setting));
+	strcpy(m_Setting.ShopMap, "亚维特岛");
 
 	m_nStartTime = time(nullptr);
 
@@ -144,7 +145,7 @@ void Game::Run()
 	//m_pDriver->SetHidePid(GetCurrentProcessId());
 
 	//DbgPrint("Game::Run!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-	if (!m_pGameProc->InitSteps()) {
+	if (!m_bAutoOffline && !m_pGameProc->InitSteps()) {
 		DbgPrint("初始化步骤失败，无法继续运行！！！\n");
 		LOG2(L"初始化步骤失败，无法继续运行！！！", "red");
 		return;
@@ -169,51 +170,55 @@ void Game::Run()
 		Sleep(3000);
 	}
 
-#if 0
-	DbgPrint("try fs...\n");
-	bool try_fs = true;
-_try_fs_install_:
-	if (m_pDriver->InstallFsFilter(m_chPath, "360SafeFsFlt.sys", "370030")) {
-		DbgPrint("Install Protect Ok.\n");
-		LOG2(L"Install Protect Ok.", "green b");
-		if (m_pDriver->StartFsFilter()) {
-			DbgPrint("Start Protect Ok.\n");
-			LOG2(L"Start Protect Ok.", "green b");
-		}
-		else {
-			if (try_fs) {
-				try_fs = false;
-				DbgPrint("Start Protect Failed.\n");
-				LOG2(L"Start Protect Failed, Try Agin.", "red b");
-#if 0
-				system("sc stop DriverFs999");
-				system("sc delete DriverFs999");
-#else
-				m_pGame->m_pDriver->Delete(L"360SafeFlt");
-#endif
-				goto _try_fs_install_;
+	if (!m_bAutoOffline) {
+#if 1
+		DbgPrint("try fs...\n");
+		bool try_fs = true;
+	_try_fs_install_:
+		if (m_pDriver->InstallFsFilter(m_chPath, "360SafeFsFlt.sys", "370030")) {
+			DbgPrint("Install Protect Ok.\n");
+			LOG2(L"Install Protect Ok.", "green b");
+			if (m_pDriver->StartFsFilter()) {
+				DbgPrint("Start Protect Ok.\n");
+				LOG2(L"Start Protect Ok.", "green b");
 			}
 			else {
-				DbgPrint("Start Protect Failed 请重启本程序再尝试.\n");
-				LOG2(L"Start Protect Failed, 请重启本程序再尝试.", "red b");
-				Alert(L"Start Protect Failed, 请重启本程序再尝试.", 2);
-#if ISCMD
-				system("pause");
+				if (try_fs) {
+					try_fs = false;
+					DbgPrint("Start Protect Failed.\n");
+					LOG2(L"Start Protect Failed, Try Agin.", "red b");
+#if 0
+					system("sc stop DriverFs999");
+					system("sc delete DriverFs999");
+#else
+					m_pGame->m_pDriver->Delete(L"360SafeFlt");
 #endif
-				// return;
+					goto _try_fs_install_;
+				}
+				else {
+					DbgPrint("Start Protect Failed 请重启本程序再尝试.\n");
+					LOG2(L"Start Protect Failed, 请重启本程序再尝试.", "red b");
+					//Alert(L"Start Protect Failed, 请重启本程序再尝试.", 2);
+#if ISCMD
+					system("pause");
+#endif
+					// return;
+				}
 			}
 		}
-	}
-	else {
-		DbgPrint("Install Protect Faild.\n");
-		LOG2(L"Install Protect Faild.", "red b");
+		else {
+			DbgPrint("Install Protect Faild.\n");
+			LOG2(L"Install Protect Faild.", "red b");
 #if ISCMD
-		system("pause");
+			system("pause");
 #endif
-		return;
+			return;
+		}
+#endif
 	}
-#endif
 
+	m_bAutoOffline = false;
+	m_bAutoOnline = false;
 	//printf("!m_pEmulator->List2!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 	//m_pEmulator->List2();
 	int login_num = m_pGameData->WatchGame();
@@ -240,13 +245,17 @@ _try_fs_install_:
 
 		DbgPrint("登录完成了.\n");
 		LOG2(L"登录游戏完成.", "green");
-		
+
+#if 0
+		LOG2(L"准备存球了.", "orange b");
+		// 存球
+		memset(m_pShareTeam->saveqiu, 1, sizeof(m_pShareTeam->saveqiu));
 		//return;
+#endif	
 	}
 
 	m_pGameData->m_pAccountBig = m_pBig; // 大号
 	m_pBig->IsLogin = 1;
-
 #if 0
 	::SetForegroundWindow(m_pBig->Mnq->WndTop);
 	m_pGameProc->Wait(3 * 1000);
@@ -255,7 +264,23 @@ _try_fs_install_:
 	m_pMagic->UseCaiJue(100, 100);
 	while (true) Sleep(100);
 #endif
+#if 1
+	m_pGameProc->CreateTeam(m_pBig);
+	m_pGameProc->ViteInTeam(m_pBig);
 
+	for (int x = 0; x < m_AccountList.size(); x++) {
+		if (IsOnline(m_AccountList[x]) && !m_AccountList[x]->IsBig) {
+			m_pGameProc->InTeam(m_AccountList[x]);
+		}
+	}
+
+	for (int x = 0; x < m_AccountList.size(); x++) {
+		if (IsOnline(m_AccountList[x]) && !m_AccountList[x]->IsBig) {
+			m_pGameProc->GoGetXiangLian(m_AccountList[x]);
+			m_pItem->GoShop();
+		}
+	}
+#endif
 	// while (true) Sleep(168);
 	m_pGameProc->SwitchGameAccount(m_pBig);
 
@@ -266,7 +291,6 @@ _try_fs_install_:
 	//m_pGame->m_pItem->DropItem();
 	//m_pGame->m_pItem->CheckIn();
 	//while (true) Sleep(168);
-
 	m_pGameProc->m_bPause = false;
 	if (m_pGameProc->IsInFB(m_pBig)) {
 		//m_pGameProc->OutFB(m_pBig);
@@ -339,6 +363,9 @@ bool Game::AutoLogin(const char* remark)
 	for (int i = 0; i < m_AccountList.size(); i++, login_num++) {
 		if (login_num > m_iLoginCount)
 			break;
+
+		if (m_AccountList[i]->IsBig && m_Setting.OnlyLoginSmall)
+			continue;
 
 		if (IsOnline(m_AccountList[i]) || CheckStatus(m_AccountList[i], ACCSTA_COMPLETED))
 			continue;
@@ -419,14 +446,21 @@ void Game::Login(Account* p, int index)
 					LOGVARP2(log, "green", L"%hs Say 已进入, 用时%d秒", p->Name, tl/1000);
 
 					SetStatus(p, ACCSTA_ONLINE, true);
+					p->IsReadXL = 0;
 					p->PlayTime = time(nullptr);
 
 					p->Wnd.Pic = ::FindWindowEx(p->Wnd.Game, NULL, NULL, NULL);
 					m_pGameProc->WaitGameMenu(p);
+					m_pButton->Click(p->Wnd.Game, BUTTON_ID_CLOSEMENU, "关闭");
+
+					if (m_Setting.OnlyLoginSmall) { // 只会登录小号
+						break;
+					}
+
 					if (p->IsBig) {
 						m_pGameProc->GoLeiMing(p); // 去雷鸣
 
-						int s = 1;
+						int s = 0;
 						for (; s > 0; s--) {
 							DbgPrint("%d 秒后去副本门口\n", s);
 							LOGVARP2(log, "c6", L"%d 秒后去副本门口", s);
@@ -435,7 +469,7 @@ void Game::Login(Account* p, int index)
 
 						m_pGameProc->GoFBDoor(p, 5); // 去门口
 
-						s = 2;
+						s = 0;
 						for (; s > 0; s--) {
 							DbgPrint("%d 秒后登录下一个\n", s);
 							LOGVARP2(log, "c6", L"%d 秒后登录下一个", s);
@@ -445,6 +479,7 @@ void Game::Login(Account* p, int index)
 					
 					SetReady(p, 1);
 
+#if 0
 					int no = index - 1;
 					memcpy(m_pShareTeam->users[no], p->Name, sizeof(p->Name));
 					m_pShareTeam->canin[no] = 0;
@@ -467,11 +502,11 @@ void Game::Login(Account* p, int index)
 
 					if (!p->IsBig) {
 #if 0
-						Inject(p->GamePid, L"C:\\Users\\12028\\Desktop\\工具\\Vs\\Team.dll", L"Team.dll");
+						Inject(p->GamePid, L"C:\\Users\\12028\\Desktop\\工具\\Vs\\3dmark.dll", L"3dmark.dll");
 #else
 						wchar_t dll[MAX_PATH];
-						::wsprintf(dll, L"%hs\\files\\Team.dll", m_chPath);
-						Inject(p->GamePid, dll, L"Team.dll");
+						::wsprintf(dll, L"%hs\\KGMusic\\3dmark.dll", m_chPath);
+						//Inject(p->GamePid, dll, L"3dmark.dll");
 						LOGVARP2(log, "c6", L"%ws", dll);
 #endif
 					}
@@ -529,6 +564,7 @@ void Game::Login(Account* p, int index)
 							Sleep(1000);
 						}
 					}
+#endif
 
 #if 0
 					if (index < m_iLoginCount || m_iLoginCount == 1) {
@@ -611,15 +647,17 @@ void Game::Login(Account* p, int index)
 // 获取最新游戏窗体
 HWND Game::FindNewGameWnd(DWORD* pid)
 {
-	DWORD pids[10];
+	DWORD pids[20];
 	DWORD len = SGetProcessIds(L"soul.exe", pids, sizeof(pids) / sizeof(DWORD));
 	for (int i = 0; i < len; i++) {
 		HWND hWnd = m_pButton->FindGameWnd(pids[i]);
-		::printf("FindNewGameWnd:%d %08X\n", pids[i], (DWORD)hWnd);
+		//::printf("FindNewGameWnd:%d %08X\n", pids[i], (DWORD)hWnd);
 		if (hWnd) {
+			::printf("FindNewGameWnd:%d %08X\n", pids[i], (DWORD)hWnd);
 			bool result = true;
 			for (int j = 0; j < m_AccountList.size(); j++) {
 				if (m_AccountList[j]->Wnd.Game == hWnd) {
+					::printf("窗口已经绑定:%s %08X\n", m_AccountList[j]->Name, (DWORD)hWnd);
 					result = false;
 					break;
 				}
@@ -628,7 +666,7 @@ HWND Game::FindNewGameWnd(DWORD* pid)
 				HWND hWndPosX = m_pButton->FindButtonWnd(hWnd, STATIC_ID_POS_X);
 				::printf("hWndPosX %08X %d.\n", (DWORD)hWnd, m_pGameData->FormatCoor(hWndPosX));
 				if (!hWndPosX) {
-					//::printf("!hWndPosX %08X.\n", (DWORD)hWnd);
+					::printf("!hWndPosX %08X.\n", (DWORD)hWnd);
 					if (pid) {
 						*pid = pids[i];
 					}
@@ -636,7 +674,7 @@ HWND Game::FindNewGameWnd(DWORD* pid)
 				}
 					
 				if (!m_pGameData->FormatCoor(hWndPosX)) {
-					//::printf("!FormatCoor %08X.\n", (DWORD)hWnd);
+					::printf("!FormatCoor %08X.\n", (DWORD)hWnd);
 					if (pid) {
 						*pid = pids[i];
 					}
@@ -661,12 +699,19 @@ void Game::SelectServer(HWND hWnd)
 {
 	Sleep(150);
 
+	RECT rect;
+	::GetWindowRect(hWnd, &rect);
+
 	int x, y;
 	GetSerBigClickPos(x, y);
+	::SetCursorPos(rect.left + x, rect.top + y);
+	Sleep(300);
 	LeftClick(hWnd, x, y); // 选择大区
 	Sleep(1500);
 
 	GetSerSmallClickPos(x, y);
+	::SetCursorPos(rect.left + x, rect.top + y);
+	Sleep(300);
 	LeftClick(hWnd, x, y); // 选择小区
 }
 
@@ -749,10 +794,13 @@ void Game::LeftClick(HWND hWnd, int x, int y)
 // 按键
 void Game::Keyborad(int key, bool tra)
 {
-	bool is_caps = key >= 'A' && key <= 'Z';
+	bool is_caps = (key >= 'A' && key <= 'Z') || key == '@';
 	if (tra) {
 		if (key >= 'a' && key <= 'z')
 			key -= 32;
+	}
+	if (key == '@') {
+		key = '2';
 	}
 
 
@@ -773,6 +821,10 @@ void Game::Keyborad(int key, bool tra)
 // 退出
 void Game::AutoLogout()
 {
+	if (m_pShareTeam) {
+		m_pShareTeam->learderfbdoor = 1;
+	}
+
 	for (int i = 0; i < m_AccountList.size(); i++) {
 		if (!IsOnline(m_AccountList[i]))
 			continue;
@@ -790,6 +842,7 @@ void Game::AutoLogout()
 void Game::LogOut(Account* p)
 {
 	wchar_t log[64];
+	m_pGameProc->SetForegroundWindow(p);
 
 #if 0
 #if 0
@@ -803,10 +856,22 @@ void Game::LogOut(Account* p)
 #endif
 	if (m_pShareTeam) {
 		LOGVARP2(log, "red", L"%hs Say 准备退出了", p->Name);
-		memcpy(m_pShareTeam->closer, p->Name, sizeof(p->Name));
+		//memcpy(m_pShareTeam->closer, p->Name, sizeof(p->Name));
 	}
 	Sleep(1000);
+	m_pGame->m_pButton->Click(p->Wnd.Game, BUTTON_ID_TEAM, "组队");
+	Sleep(1000);
+	m_pGame->m_pButton->Click(p->Wnd.Game, 0x443);
+	Sleep(1000);
+	m_pGame->m_pButton->Click(p->Wnd.Game, 0x477, "确定");
+	Sleep(1000);
 
+	TerminateProcess(p->Process, 0);
+
+	p->XL = 0;
+	p->IsReadXL = 0;
+	ZeroMemory(&p->Wnd, sizeof(p->Wnd));
+	ZeroMemory(&p->Addr, sizeof(p->Addr));
 	SetStatus(p, ACCSTA_COMPLETED, true);
 	DbgPrint("\n%hs Say 已完成\n", p->Name);
 	LOGVARP2(log, "red b", L"\n%hs Say 已完成 %d\n", p->Name, p->GamePid);
@@ -850,7 +915,7 @@ int Game::GetLoginCount()
 	if (m_iLoginFlag >= 0)
 		return !IsLogin(m_AccountList[m_iLoginFlag]) ? 1 : 0;
 
-	int max = MAX_ACCOUNT_LOGIN;
+	int max =  m_Setting.OnlyLoginSmall ? 100 : MAX_ACCOUNT_LOGIN;
 	int count = 0;
 	for (int i = 0; i < m_AccountList.size(); i++) {
 		if (IsLogin(m_AccountList[i])) {
@@ -884,10 +949,62 @@ int Game::CheckLoginTimeOut()
 
 	// 定时下线
 	if (IsInTime(m_Setting.OffLine_SH, m_Setting.OffLine_SM, m_Setting.OffLine_EH, m_Setting.OffLine_EM)) {
-		if (GetOnLineCount() > 0) {
-			m_pEmulator->Close(0);
-			m_pServer->SendToOther(0, SCK_CLOSE, true);
-			return 0;
+		for (int i = 0; i < m_AccountList.size(); i++) {
+			if (IsOnline(m_AccountList[i])) {
+				LogOut(m_AccountList[i]);
+			}
+
+			SetStatus(m_AccountList[i], ACCSTA_INIT, true);
+		}
+
+		Sleep(5000);
+
+		SYSTEMTIME stLocal;
+		::GetLocalTime(&stLocal);
+
+		wchar_t exe[MAX_PATH], cmdline[32];
+		GetModuleFileName(NULL, exe, MAX_PATH);
+		::wsprintfW(cmdline, L"x%dx", stLocal.wDay);
+
+		LPWSTR c = ::GetCommandLineW();
+		//::MessageBox(NULL, c, L"X", MB_OK);
+		if (wcsstr(c, cmdline) == nullptr) {
+			//::MessageBox(NULL, exe, L"X", MB_OK);
+#if 0
+			//重启程序
+			STARTUPINFO StartInfo;
+			PROCESS_INFORMATION procStruct;
+			memset(&StartInfo, 0, sizeof(STARTUPINFO));
+			StartInfo.cb = sizeof(STARTUPINFO);
+			BOOL r = ::CreateProcessW(
+				exe,
+				NULL,
+				NULL,
+				NULL,
+				FALSE,
+				NORMAL_PRIORITY_CLASS,
+				NULL,
+				NULL,
+				&StartInfo,
+				&procStruct);
+#else
+			BOOL r = TRUE;
+			wchar_t path[MAX_PATH];
+			::GetCurrentDirectory(MAX_PATH, path);
+			::wsprintfW(path, L"%ws\\StartApp.exe", path);
+			//::MessageBox(NULL, path, L"X", MB_OK);
+			ShellExecute(NULL, L"open", path,
+				exe, NULL, SW_SHOWNORMAL);
+#endif
+
+			if (r) {
+				Sleep(1000);
+				::PostMessage(m_hUIWnd, WM_SYSCOMMAND, SC_CLOSE, NULL);
+				TerminateProcess(GetCurrentProcess(), 0);
+			}
+			else {
+				::MessageBox(NULL, L"程序未能正确重启！！！", exe, MB_OK);
+			}
 		}
 	}
 	// 定时登录
@@ -974,7 +1091,7 @@ bool Game::SetGameWnd(HWND hwnd, bool* isbig)
 // 设置游戏进程ID
 bool Game::SetGameAddr(Account* p, GameDataAddr* addr)
 {
-	memcpy(&p->Addr, addr, sizeof(GameDataAddr));
+	::memcpy(&p->Addr, addr, sizeof(GameDataAddr));
 	p->IsGetAddr = 1;
 
 	SetStatus(p, ACCSTA_ONLINE, true);
@@ -1176,23 +1293,18 @@ Account* Game::GetNextLoginAccount()
 	DbgPrint("GetAccountByStatus(ACCSTA_INIT | ACCSTA_OFFLINE) 完成\n");
 	if (!p) {
 		::printf("for (int i = 0; i < m_AccountList.size(); i++) \n");
+		LOG2(L"全部账号已完成, 准备获取已完成账号.", "red");
 		for (int i = 0; i < m_AccountList.size(); i++) {
-			if (CheckStatus(m_AccountList[i], ACCSTA_COMPLETED)) { // 完成的
-				tm t;
-				time_t play_time = m_AccountList[i]->PlayTime;
-				gmtime_s(&t, &play_time);
-
-				tm t2;
-				time_t now_time = time(nullptr);
-				gmtime_s(&t2, &now_time);
-
-				if (t.tm_mday != t2.tm_mday) { // 帐号是昨天或更早登录的, 可以再次登录
-					DbgPrint(" 更新帐号状态%d %d %d,%d\n", t.tm_mday, t2.tm_mday, (int)play_time, (int)now_time);
-					p = m_AccountList[i];
-					SetStatus(p, ACCSTA_INIT); // 更新帐号状态
-					break;
-				}
+			if (!IsOnline(m_AccountList[i])) { // 不在线
+				p = m_AccountList[i];
+				SetStatus(p, ACCSTA_INIT, true); // 更新帐号状态
+				p->IsReadXL = 0;
+				ZeroMemory(&p->Addr, sizeof(p->Addr));
 			}
+		}
+		p = GetAccountByStatus(ACCSTA_INIT | ACCSTA_OFFLINE);
+		if (!p) {
+			LOG2(L"获取不到要登录的账号.", "red b");
 		}
 		DbgPrint("for (int i = 0; i < m_AccountList.size(); i++)  完成\n");
 	}
@@ -1445,6 +1557,19 @@ void Game::UpdateDBFB(int count)
 	}
 }
 
+int Game::GetShareTeamIndex(const char* user)
+{
+	if (!m_pShareTeam)
+		return -1;
+
+	for (int i = 0; i < 5; i++) {
+		if (strcmp(m_pShareTeam->users[i], user) == 0)
+			return i;
+	}
+
+	return -1;
+}
+
 // 更新刷副本时长
 void Game::UpdateDBFBTimeLong(int time_long)
 {
@@ -1587,7 +1712,7 @@ DWORD Game::ReadConf()
 
 	strcpy(path, m_chPath);
 	strcpy(logfile, m_chPath);
-	strcat(path, "\\帐号.txt");
+	strcat(path, "\\新建文本文档2.txt");
 	strcat(logfile, "\\日记.txt");
 
 	Asm_Nd(GetCurrentThread(), GetNdSysCallIndex()); // 禁止反调试
@@ -1595,7 +1720,7 @@ DWORD Game::ReadConf()
 	::printf("帐号文件:%hs\n", path);
 	OpenTextFile file;
 	if (!file.Open(path)) {
-		::printf("找不到'帐号.txt'文件！！！");
+		::printf("找不到'新建文本文档2.txt'文件！！！");
 		return false;
 	}
 
@@ -1703,6 +1828,9 @@ void Game::ReadSetting(const char* data)
 	else if (strcmp(explode[0], "游戏小区") == 0) {
 		strcpy(m_Setting.SerSmall, explode[1]);
 	}
+	else if (strcmp(explode[0], "商店地图") == 0) {
+		strcpy(m_Setting.ShopMap, explode[1]);
+	}
 	else if (strcmp(explode[0], "启动超时") == 0) {
 		m_Setting.InitTimeOut = explode.GetValue2Int(1);
 		strcpy(tmp, "秒");
@@ -1738,6 +1866,9 @@ void Game::ReadSetting(const char* data)
 	else if (strcmp(explode[0], "刷完关机") == 0) {
 		m_Setting.ShutDownNoXL = strcmp("是", explode[1]) == 0;
 		SetSetting("shuawan_shutdown", m_Setting.ShutDownNoXL);
+	}
+	else if (strcmp(explode[0], "呆在副本门口") == 0) {
+		m_Setting.AtFBDoor = strcmp("是", explode[1]) == 0;
 	}
 	else if (strcmp(explode[0], "定时关机") == 0) {
 		Explode t("-", explode[1]);
@@ -1908,6 +2039,10 @@ void Game::PutSetting(const wchar_t* name, int v)
 	else if (wcscmp(name, L"shuawan_shutdown") == 0) {
 		m_Setting.ShutDownNoXL = v;
 		LOGVARN2(64, "cb", L"修改.刷完关机:%hs.", v ? "是" : "否");
+	}
+	else if (wcscmp(name, L"login_only_small") == 0) {
+		m_Setting.OnlyLoginSmall = v;
+		LOGVARN2(64, "cb", L"修改.只登小号:%hs.", v ? "是" : "否");
 	}
 	/******** 定时关机 ********/
 	else if (wcscmp(name, L"shutdown_sh") == 0) {
@@ -2425,6 +2560,7 @@ void Game::SaveScreen(const char* name)
 // CRC校验
 bool Game::ChCRC(bool loop)
 {
+	return true;
 	if (!m_pHome->IsValid()) {
 		if (++m_nCheckCRCError >= 10) {
 			while (loop);

@@ -185,17 +185,18 @@ void GameProc::SetForegroundWindow(_account_* account)
 	//接下来只要用任何现存窗口的句柄调用这个函数即可，
 	//第二个参数表示如果窗口处于最小化状态，是否恢复。
 	SwitchToThisWindow(account->Wnd.Game, TRUE);
+	::SetForegroundWindow(account->Wnd.Game);
 
 	Sleep(100);
-	m_pGame->m_pButton->Click(account->Wnd.Game, 720, 520);
-	m_pGame->m_pButton->ClickPic(account->Wnd.Game, account->Wnd.Pic, 720, 450);
+	//m_pGame->m_pButton->Click(account->Wnd.Game, 720, 520);
+	//m_pGame->m_pButton->ClickPic(account->Wnd.Game, account->Wnd.Pic, 720, 450);
 }
 
 // 等待提示框
 void GameProc::WaitGameMenu(_account_* account)
 {
 	LOG2(L"等待游戏菜单...", "c6");
-	time_t second = 15;
+	time_t second = 20;
 	time_t s = time(nullptr);
 	while (true) {
 		Sleep(1000);
@@ -215,6 +216,7 @@ void GameProc::WaitGameMenu(_account_* account)
 				Sleep(1000);
 			if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU))
 				Sleep(1000);
+
 			return;
 		}
 	}
@@ -302,35 +304,119 @@ void GameProc::GoLeiMing(_account_* account)
 }
 
 // 去领取项链
-void GameProc::GoGetXiangLian()
+void GameProc::GoGetXiangLian(Account* account)
 {
+	wchar_t log[64];
+	LOGVARP2(log, "c0 b", L"%hs去领项链.", account->Name);
+	while (true) {
+		if (m_bPause || m_bAtFB)
+			break;
+
+		this->SetForegroundWindow(account);
+		m_pGame->m_pItem->GoShop();
+		Sleep(1000);
+		if (m_pGame->m_pGameData->IsInArea(250, 500, 10, account))
+			break;
+	}
+
+	Sleep(8000);
+	_npc_coor_ npcCoor;
+	npcCoor.Point[0].MvX = 250;
+	npcCoor.Point[0].MvY = 500;
+	npcCoor.Point[0].ClkX = 460;
+	npcCoor.Point[0].ClkY = 350;
+	npcCoor.Point[0].ClkX2 = 460;
+	npcCoor.Point[0].ClkY2 = 350;
+	npcCoor.Length = 1;
+
+	this->SetForegroundWindow(account);
+	CloseTipBox();
+
+	DWORD pos_x, pos_y;
+	m_pGame->m_pGameData->ReadCoor(&pos_x, &pos_y, account);
+	int click_x, click_y;
+	GetNPCClickPos(&npcCoor, pos_x, pos_y, (DWORD&)click_x, (DWORD&)click_y);
+	if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "C")) {
+		Sleep(500);
+	}
+	if (m_pGame->m_pButton->CloseButton(account->Wnd.Game, BUTTON_ID_XXX, "X")) {
+		Sleep(500);
+	}
+
+	DbgPrint("(%hs)点击艾黎(%d,%d).\n", account->Name, click_x, click_y);
+	LOGVARP2(log, "c6", L"(%hs)点击艾黎(%d,%d).", account->Name, click_x, click_y);
+	m_pGame->m_pButton->ClickPic(account->Wnd.Game, account->Wnd.Pic, click_x, click_y, 300);
+	if (m_pGame->m_pTalk->WaitTalkOpen(account->Wnd.Pic)) {
+		Sleep(1500);
+		m_pGame->m_pTalk->Select("领取爱娜祈祷项链", account->Wnd.Pic, true);
+		Sleep(1000);
+		m_pGame->m_pTalk->Select("领取爱娜祈祷项链", account->Wnd.Pic, true);
+		Sleep(1000);
+		m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "C");
+		Sleep(1000);
+	}
+
+	m_pGame->m_pGameData->ReadCoor(&pos_x, &pos_y, account);
+	GetNPCClickPos(&npcCoor, pos_x, pos_y, (DWORD&)click_x, (DWORD&)click_y);
+	DbgPrint("(%hs)点击艾黎(%d,%d).\n", account->Name, click_x, click_y);
+	LOGVARP2(log, "c6", L"(%hs)点击艾黎(%d,%d).", account->Name, click_x, click_y);
+	m_pGame->m_pButton->ClickPic(account->Wnd.Game, account->Wnd.Pic, click_x, click_y, 300);
+	if (m_pGame->m_pTalk->WaitTalkOpen(account->Wnd.Pic)) {
+		Sleep(1500);
+		m_pGame->m_pTalk->Select("领取特制经验球", account->Wnd.Pic, true);
+		Sleep(1000);
+		m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "C");
+		Sleep(1000);
+	}
 }
 
 // 询问项链数量
 _account_* GameProc::AskXiangLian()
 {
 	Account* account = nullptr;
+	Account* account2 = nullptr;
 	int max = 0;
 	for (int i = 0; i < m_pGame->m_AccountList.size(); i++) {
 		_account_* p = m_pGame->m_AccountList[i];
 		if (!m_pGame->IsOnline(p))
 			continue;
-			
+
 		if (!p->IsReadXL) { // 没有读取项链
 			SwitchGameAccount(p);
 			this->SetForegroundWindow(p);
 			Sleep(500);
-			p->XL = m_pGame->m_pItem->GetBagItemCount("爱娜祈祷项链");
+
+			LOGVARN2(64, "c0 b", L"\n%hs 正在读取项链数目...", p->Name);
+
+			int qiu = 0;
+			p->XL = m_pGame->m_pItem->GetBagItemCount("爱娜祈祷项链", &(p->YaoShi), &qiu);
 			p->IsReadXL = 1;
+			p->IsReadYaoShi = 1;
 		}
-		
+
 		if (p->XL > max) {
 			max = p->XL;
 			account = p;
 		}
 
-		DbgPrint("%s有项链%d条 %08X\n", p->Name, p->XL, p->Wnd.Game);
-		LOGVARN2(64, "c0", L"%hs有项链<b class=\"red\">%d</b>条", p->Name, p->XL);
+		if (p->YaoShi && !p->IsBig) {
+			account2 = p;
+		}
+
+		DbgPrint("%s有项链%d条, 钥匙%d个 %08X\n", p->Name, p->XL, p->YaoShi, p->Wnd.Game);
+		LOGVARN2(64, "c0", L"%hs有项链<b class=\"red\">%d/%d</b>条|个",
+			p->Name, p->XL, p->YaoShi);
+
+		//
+	}
+	if (IsBigOpenFB()) {
+		if (!account2 && m_pGame->m_pBig && m_pGame->m_pBig->YaoShi) {
+			account2 = m_pGame->m_pBig;
+		}
+		account = account2;
+		if (!account) {
+			LOG2(L"免费时间没有钥匙, 无法开门", "reb b");
+		}
 	}
 
 	return account;
@@ -360,8 +446,11 @@ void GameProc::GoFBDoor(_account_* account, int num)
 		Sleep(500);
 		DbgPrint("%s使用去副本门口星辰之眼\n", account->Name);
 		LOGVARN2(64, "green", L"%hs使用去副本门口星辰之眼(8键)", account->Name);
+		if (m_pGame->m_pShareTeam) {
+			//memset(m_pGame->m_pShareTeam->gofbdoor, 1, sizeof(m_pGame->m_pShareTeam->gofbdoor));
+		}
 		m_pGame->m_pItem->GoFBDoor();
-		Sleep(2000);
+		Sleep(3500);
 		if (m_pGame->m_pGameData->IsInFBDoor(account)) {
 			Sleep(2000);
 			DbgPrint("%s已到达副本门口\n", account->Name);
@@ -378,7 +467,7 @@ void GameProc::GoFBDoor(_account_* account, int num)
 }
 
 // 进入副本
-_account_* GameProc::OpenFB()
+_account_* GameProc::OpenFB(bool go_leiming)
 {
 	_account_* account = GetOpenFBAccount();
 	if (!account) {
@@ -388,6 +477,7 @@ _account_* GameProc::OpenFB()
 		LOG2(L"----------------------------------------------------", "c3");
 		LOG2(L"准备Next..........", "blue b");
 
+		bool is_big_open1 = IsBigOpenFB();
 		account = m_pGame->GetNextLoginAccount();
 		if (!account) {
 			DbgPrint("没有账号可以登录\n");
@@ -399,21 +489,44 @@ _account_* GameProc::OpenFB()
 		Sleep(1680);
 		m_pGame->OpenGame(account->Index);
 		m_pGame->m_pGameData->WatchGame();
+		Sleep(1000);
 
-		return OpenFB();
+		this->SetForegroundWindow(m_pGame->m_pBig);
+		this->SwitchGameAccount(m_pGame->m_pBig);
+		if (!m_pGame->m_pGameData->IsTheMap("雷鸣大陆", m_pGame->m_pBig)) {
+			m_pGame->m_pMagic->UseShenZunTianJiang("雷鸣大陆");
+			Sleep(1000);
+		}
+		
+		ViteInTeam(m_pGame->m_pBig);
+		InTeam(account);
+		GoGetXiangLian(account);
+
+		if (!is_big_open1 && IsBigOpenFB()) {
+			go_leiming = true;
+		}
+
+		return OpenFB(go_leiming);
 	}
 
 	this->SetForegroundWindow(account);
 	SwitchGameAccount(account);
 	m_pGame->m_pButton->HideActivity(account->Wnd.Game);
-	if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "C")) {
+	if (m_pGame->m_pButton->CloseButton(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "C")) {
 		Sleep(500);
 	}
-	else if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "x")) {
+	else if (m_pGame->m_pButton->CloseButton(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "x")) {
 		Sleep(500);
 	}
-	else if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "X")) {
+	else if (m_pGame->m_pButton->CloseButton(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "X")) {
 		Sleep(500);
+	}
+	if (m_pGame->m_pButton->CloseButton(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "关闭")) {
+		Sleep(500);
+	}
+
+	if (go_leiming && account->IsBig) {
+		m_pGame->m_pMagic->UseShenZunTianJiang("雷鸣大陆");
 	}
 
 	if (IsInFB(account)) {
@@ -437,11 +550,19 @@ _account_* GameProc::OpenFB()
 	npcCoor.Point[0].ClkY2 = 273;
 	npcCoor.Length = 1;
 
-	while (true) {
+	for (int loop_i = 0; true; loop_i++) {
 		while (m_bPause) Sleep(500);
 
+		// 复活
+		m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_REBORN, "XP2");
+		Sleep(800);
 		// 原地复活
-		m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_REBORN_AT, "XP1");
+		m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_REBORN_AT, "XP1"); 
+		if ((loop_i % 5) == 0) {
+			Sleep(1000);
+			GoFBDoor(account);
+			Sleep(1000);
+		}
 
 		this->SetForegroundWindow(account);
 		CloseTipBox();
@@ -450,6 +571,10 @@ _account_* GameProc::OpenFB()
 		m_pGame->m_pGameData->ReadCoor(&pos_x, &pos_y, account);
 		int click_x, click_y;
 		GetNPCClickPos(&npcCoor, pos_x, pos_y, (DWORD&)click_x, (DWORD&)click_y);
+
+		if (m_pGame->m_pButton->CloseButton(account->Wnd.Game, BUTTON_ID_XXX, "X")) {
+			Sleep(500);
+		}
 
 		if (click_x > 0 && click_x < 1440 && click_y > 0 && click_y < 600) {
 			DbgPrint("(%hs)点击卡利亚堡传送门(%d,%d).\n", account->Name, click_x, click_y);
@@ -465,6 +590,9 @@ _account_* GameProc::OpenFB()
 				DbgPrint("(%hs)对话没有打开.", account->Name);
 				LOGVARP2(log, "red", L"(%hs)对话没有打开.", account->Name);
 				if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CANCEL)) {
+					Sleep(500);
+				}
+				if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_XXX, "X")) {
 					Sleep(500);
 				}
 				if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "X")) {
@@ -528,6 +656,9 @@ _account_* GameProc::OpenFB()
 				if (--account->XL < 0)
 					account->XL = 0;
 
+				if (m_pGame->m_pButton->CloseButton(account->Wnd.Game, BUTTON_ID_XXX, "X")) {
+					Sleep(500);
+				}
 				return account;
 			}
 
@@ -573,6 +704,19 @@ void GameProc::OutFB(_account_* account)
 	DbgPrint("(%s)准备离开副本.\n", account);
 	LOGVARP2(log, "c0", L"(%hs)准备离开副本.", account->Name);
 
+	if (m_pGame->m_pButton->CloseButton(account->Wnd.Game, BUTTON_ID_XXX, "X")) {
+		Sleep(500);
+	}
+	if (m_pGame->m_pButton->CloseButton(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "关闭")) {
+		Sleep(500);
+	}
+	if (m_pGame->m_pButton->CloseButton(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "x")) {
+		Sleep(500);
+	}
+	if (m_pGame->m_pButton->CloseButton(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "X")) {
+		Sleep(500);
+	}
+
 	_npc_coor_ npcCoor;
 	npcCoor.Point[0].MvX = 890;
 	npcCoor.Point[0].MvY = 1100;
@@ -612,10 +756,7 @@ void GameProc::OutFB(_account_* account)
 			LOGVARP2(log, "c6", L"(%hs)点击卡利亚堡传送门出去(%d,%d).", account->Name, click_x, click_y);
 			m_pGame->m_pButton->ClickPic(account->Wnd.Game, account->Wnd.Pic, click_x, click_y);
 			if (!m_pGame->m_pTalk->WaitTalkOpen(account->Wnd.Pic)) {
-				m_pGame->m_pItem->GoFBDoor();
-				Sleep(1000);
-
-				if (m_pGame->m_pGameData->IsInFBDoor(account)) {
+				if (!IsInFB(account)) {
 					DbgPrint("%s已经在副本外\n", account->Name);
 					LOGVARP2(log, "c0 b", L"(%hs)已经在副本外\n", account->Name);
 					break;
@@ -637,9 +778,13 @@ void GameProc::OutFB(_account_* account)
 		
 		for (int i = 0; i < 5; i++) {
 			while (m_bPause) Sleep(500);
-			if (m_pGame->m_pGameData->IsInFBDoor(account)) {
+			if (!IsInFB(account)) {
 				DbgPrint("%s已经在副本外\n", account->Name);
 				LOGVARP2(log, "c0 b", L"(%hs)已经在副本外\n", account->Name);
+				Sleep(1000);
+				if (!m_pGame->m_Setting.AtFBDoor && !account->IsBig) {
+					m_pGame->m_pItem->GoShop();
+				}
 				return;
 			}
 
@@ -653,7 +798,8 @@ void GameProc::OutFB(_account_* account)
 // 获取开启副本帐号
 _account_ * GameProc::GetOpenFBAccount()
 {
-	return IsBigOpenFB() ? m_pGame->GetBigAccount() : AskXiangLian();
+	return AskXiangLian();
+	//return IsBigOpenFB() ? m_pGame->GetBigAccount() : AskXiangLian();
 }
 
 // 获取时间小时
@@ -674,7 +820,7 @@ bool GameProc::IsBigOpenFB()
 	if (stLocal.wHour < 20) // 20点到24点可以免费进
 		return false;
 
-	return stLocal.wHour == 23 ? stLocal.wMinute < 59 : true; // 至少要1分钟时间准备
+	return stLocal.wHour == 23 ? stLocal.wMinute < 58 : true; // 至少要1分钟时间准备
 }
 
 // 执行
@@ -705,6 +851,10 @@ start:
 			SwitchGameAccount(account);
 			ExecInFB();
 		}
+		if (m_pGame->m_bAutoOffline) {
+			break;
+		}	
+
 		Sleep(2000);
 	}
 }
@@ -712,76 +862,56 @@ start:
 // 去入队坐标
 void GameProc::GoInTeamPos(_account_* account)
 {
-	if (!account->Mnq) {
-		LOGVARN2(64, "red", L"%s未绑定模拟器", account->Name);
-		return;
-	}
-
-	SwitchGameWnd(account->Mnq->Wnd);
-	SwitchGameAccount(account);
-
-	if (m_pGame->m_pGameData->IsInShenDian(account)) // 先离开神殿
-		GoLeiMing(account);
-
-	if (!m_pGame->m_pGameData->IsInFBDoor(account)) {
-		GoFBDoor(account);	
-	}
-	Sleep(1000);
-
-	int x = 880, y = 500;
-	if (account->IsBig) {
-		x = 882;
-		y = 507;
-	}
-	//m_pGame->m_pMove->RunEnd(x, y, account);
-
-	Sleep(2000);
-	if (account->IsBig) { // 大号创建队伍
-		CreateTeam();
-	}
-	else {
-		//return;
-		SwitchGameWnd(m_pGame->GetBigAccount()->Mnq->Wnd);
-		ViteInTeam();
-		Sleep(2000);
-		SwitchGameWnd(account->Mnq->Wnd);
-		InTeam(account);
-		Sleep(1000);
-		m_pGame->m_pMove->Run(872, 495, account);
-		//Sleep(1000);
-		//Click(425, 235);
-		//872, 495 这里点击副本门
-		//425, 235 点击副本门
-	}
-	SwitchGameAccount(m_pGame->m_pBig);
 }
 
 // 创建队伍
-void GameProc::CreateTeam()
+void GameProc::CreateTeam(Account* account)
 {
 	DbgPrint("创建队伍...\n");
 	LOG2(L"创建队伍...", "c0");
-	Click(5, 360, 25, 390);     // 点击左侧组队
+
+	m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_TEAM, "组队");
 	Sleep(1000);
-	Click(80, 345, 200, 360);   // 点击创建队伍
-	Sleep(1500);
-	Click(1160, 60, 1166, 66);  // 点击关闭按钮
+	m_pGame->m_pButton->Click(account->Wnd.Game, 0x43B);
 	Sleep(1000);
-	Click(5, 463, 10, 466);     // 收起左侧组队
+
 	DbgPrint("创建队伍完成\n");
 	LOG2(L"创建队伍完成", "c0");
 }
 
 // 邀请入队 大号邀请 
-void GameProc::ViteInTeam()
+void GameProc::ViteInTeam(Account* account)
 {
 	DbgPrint("准备邀请入队\n");
 	LOG2(L"准备邀请入队", "c0");
-	Click(766, 235);           // 点击人物模型
+
+	this->SetForegroundWindow(account);
+
+	m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_SHEJIAO, "好友");
 	Sleep(1000);
-	Click(410, 35, 415, 40);   // 点击人物头像
-	Sleep(1000);
-	Click(886, 236, 900, 245); // 点击邀请入队
+	HWND h, hp;
+	m_pGame->m_pButton->FindButtonWnd(account->Wnd.Game, 0xE2B, h, hp);
+	m_pGame->m_pButton->Click(h, 60, 60);
+
+	Sleep(2000);
+	m_pGame->m_pButton->FindButtonWnd(account->Wnd.Game, 0x590, h, hp, "C");
+
+	int ys[4] = { 70, 98, 125, 145 };
+
+	for (int i = 0; i < 4; i++) {
+		RECT rect;
+		::GetWindowRect(hp, &rect);
+		::SetCursorPos(rect.left + 60, rect.top + ys[i]); // 60, 98, 125, 145
+		Sleep(50);
+		mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+		mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+		Sleep(3000);
+		m_pGame->m_pButton->Click(account->Wnd.Game, 0x506, "自动组队");
+		Sleep(1000);
+	}
+	
+	m_pGame->m_pButton->Click(account->Wnd.Game, 0x590, "C");
+
 	DbgPrint("完成邀请入队\n");
 	LOG2(L"完成邀请入队", "c0");
 }
@@ -831,7 +961,7 @@ void GameProc::ViteInFB(_account_* account)
 
 		Sleep(1000);
 	}
-	Wait(5 * 1000);
+	Wait(2 * 1000);
 
 	DbgPrint("(%s)打勾邀请选框.\n", account->Name);
 	LOGVARP2(log, "c0", L"(%hs)打勾邀请选框.", account->Name);
@@ -855,6 +985,31 @@ void GameProc::InFB(_account_* account)
 	wchar_t log[64];
 	DbgPrint("%s准备同意进入\n", account->Name);
 	LOGVARP2(log, "c0 b", L"%hs准备同意进入", account->Name);
+
+	if (m_pGame->m_pButton->CloseButton(account->Wnd.Game, BUTTON_ID_XXX, "X")) {
+		Sleep(500);
+	}
+	if (m_pGame->m_pButton->CloseButton(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "关闭")) {
+		Sleep(500);
+	}
+	if (m_pGame->m_pButton->CloseButton(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "x")) {
+		Sleep(500);
+	}
+	if (m_pGame->m_pButton->CloseButton(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "X")) {
+		Sleep(500);
+	}
+
+	// 复活
+	m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_REBORN, "XP2");
+	Sleep(500);
+	m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_REBORN, "XP1");
+	Sleep(1000);
+
+	// 原地复活
+	m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_REBORN_AT, "XP1");
+	Sleep(500);
+	m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_REBORN_AT, "XP2");
+	Sleep(2000);
 
 	for (int i = 1; i <= 5; i++) {
 		if (m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_INFB, "同意")) {
@@ -1006,6 +1161,10 @@ void GameProc::ExecInFB()
 	while (1 && ExecStep(m_pGameStep->m_Step, true)); // 大号刷副本
 	m_bLockGoFB = false;
 
+	if (m_pGame->m_bAutoOffline) {
+		return;
+	}
+
 	//while (true) Sleep(900);
 
 	int end_time = time(nullptr);
@@ -1077,6 +1236,10 @@ void GameProc::ExecInFB()
 // 执行流程
 bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 {
+	if (m_pGame->m_bAutoOffline) {
+		return false;
+	}
+
 	m_pStep = m_pGameStep->Current(link);
 	if (!m_pStep) {
 		DbgPrint("流程全部执行完毕.\n");
@@ -1488,7 +1651,7 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 						m_nYao += 6;
 					}
 					else {
-						m_pGame->m_pItem->UseYao(1, false, 100); // 用药
+						m_pGame->m_pItem->UseYao(1, false, 300); // 用药
 						m_nYao--;
 					}
 
@@ -1496,7 +1659,7 @@ bool GameProc::ExecStep(Link<_step_*>& link, bool isfb)
 				}
 				else {
 					if (m_nYao > m_nLiveYao) { // 药多于6
-						m_pGame->m_pItem->UseYao(1, false, 100);
+						m_pGame->m_pItem->UseYao(1, false, 300);
 						m_nYao--;
 
 						use_yao_bao = true;
@@ -2294,7 +2457,7 @@ void GameProc::Select()
 			Sleep(150);
 			if (IsNeedAddLife(8000) == 1) {
 				is_add_life = true;
-				m_pGame->m_pItem->UseYao(5);
+				m_pGame->m_pItem->UseYao(3, true, 800);
 				NPCLast();
 				i--;
 			}
@@ -2349,7 +2512,7 @@ void GameProc::Select()
 			m_pGame->m_pGameData->ReadLife(&now_life, nullptr, m_pAccount);
 			if (life == now_life) { // 有可能血量显示不正确
 				LOGVARN2(64, "c0", L"%d.血量可能显示错误, 加血(%d!=%d).", i, life, now_life);
-				m_pGame->m_pItem->UseYao(5);
+				m_pGame->m_pItem->UseYao(3);
 				NPCLast();
 				life_add_i = i--;
 			}
@@ -2399,7 +2562,7 @@ _check_:
 
 				if ((i & 0x01) == 0x00) {
 					if (m_pStep->OpCount >= 10) {
-						m_pGame->m_pItem->UseYao(5);
+						m_pGame->m_pItem->UseYao(3);
 					}
 					if (i == 1)
 						continue;
@@ -2679,8 +2842,11 @@ void GameProc::SellItem()
 	// 620,420 630,426 迷梦沼泽
 	// 600,320 630,330 雷鸣大陆
 	Wait(2 * 1000);
-	// 使用神尊天降
-	m_pGame->m_pMagic->UseShenZunTianJiang("迷梦沼泽");
+
+	if (strcmp(m_pGame->m_Setting.ShopMap, "雷鸣大陆")) {
+		// 使用神尊天降
+		m_pGame->m_pMagic->UseShenZunTianJiang(m_pGame->m_Setting.ShopMap);
+	}
 	//SetGameCursorPos(325, 62);
 	//MouseWheel(-240);
 	//Sleep(800);
@@ -2693,12 +2859,30 @@ void GameProc::SellItem()
 	// 479,459
 	int pi = 0;
 	POINT point[3];
-	point[0].x = 479;
-	point[0].y = 459;
-	point[1].x = 515;
-	point[1].y = 420;
-	point[2].x = 503;
-	point[2].y = 398;
+	if (strcmp(m_pGame->m_Setting.ShopMap, "迷梦沼泽") == 0) {
+		point[0].x = 479;
+		point[0].y = 459;
+		point[1].x = 515;
+		point[1].y = 420;
+		point[2].x = 503;
+		point[2].y = 398;
+	}
+	else if (strcmp(m_pGame->m_Setting.ShopMap, "亚维特岛") == 0) {
+		point[0].x = 898;
+		point[0].y = 1039;
+		point[1].x = 919;
+		point[1].y = 1082;
+		point[2].x = 875;
+		point[2].y = 1067;
+	}
+	else  { // 雷鸣大陆
+		point[0].x = 208;
+		point[0].y = 388;
+		point[1].x = 275;
+		point[1].y = 450;
+		point[2].x = 275;
+		point[2].y = 450;
+    }
 
 	DWORD _tm = GetTickCount();
 	if (169) { // 不在商店那里
@@ -2741,41 +2925,87 @@ void GameProc::SellItem()
 
 	CloseTipBox();
 
+#if 0
+	Wait(3 * 1000);
+	DropItem();
+	Wait(5 * 1000);
+#endif
+
 	//MouseWheel(-240);
 	//Sleep(1000);
 	//m_pGame->m_pMove->RunEnd(pos_x, pos_y, m_pGame->m_pBig); // 移动到固定点好点击
 	//MouseWheel(-240);
 	//Sleep(800);
 
-	char npc_name[32];
+	char npc_name[64];
 	int clk_x, clk_y, clk_x2, clk_y2;
-	if (pi == 0) {
-		int rand_v = GetTickCount() % 3;
-		if (rand_v == 0) { // 装备商
-			clk_x = 500, clk_y = 398;
-			clk_x2 = 505, clk_y2 = 415;
-			strcpy(npc_name, "卖东西.装备商");
+	bool is_select = true;
+	if (strcmp(m_pGame->m_Setting.ShopMap, "迷梦沼泽") == 0) {
+		if (pi == 0) {
+			int rand_v = GetTickCount() % 3;
+			if (rand_v == 0) { // 装备商
+				clk_x = 500, clk_y = 398;
+				clk_x2 = 505, clk_y2 = 415;
+				strcpy(npc_name, "卖东西.装备商");
+			}
+			else if (rand_v == 1) { // 武器商
+				clk_x = 736, clk_y = 236;
+				clk_x2 = 750, clk_y2 = 260;
+				strcpy(npc_name, "卖东西.武器商");
+			}
+			else { // 杂货商
+				clk_x = 970, clk_y = 289;
+				clk_x2 = 980, clk_y2 = 306;
+				strcpy(npc_name, "卖东西.杂货商");
+			}
 		}
-		else if (rand_v == 1) { // 武器商
-			clk_x = 736, clk_y = 236;
-			clk_x2 = 750, clk_y2 = 260;
-			strcpy(npc_name, "卖东西.武器商");
+		else if (pi == 1) { // 首饰商
+			clk_x = 775, clk_y = 300;
+			clk_x2 = 800, clk_y2 = 315;
+			strcpy(npc_name, "卖东西.首饰商");
 		}
-		else { // 杂货商
-			clk_x = 970, clk_y = 289;
-			clk_x2 = 980, clk_y2 = 306;
-			strcpy(npc_name, "卖东西.杂货商");
+		else if (pi == 2) { // 首饰商
+			clk_x = 457, clk_y = 810;
+			clk_x2 = 459, clk_y2 = 815;
+			strcpy(npc_name, "卖东西.首饰商");
 		}
 	}
-	else if (pi == 1) { // 首饰商
-		clk_x = 775, clk_y = 300;
-		clk_x2 = 800, clk_y2 = 315;
-		strcpy(npc_name, "卖东西.首饰商");
+	else if (strcmp(m_pGame->m_Setting.ShopMap, "亚维特岛") == 0) {
+		if (pi == 0) {
+			int rand_v = GetTickCount() % 2;
+			if (rand_v == 0) { // 武器商
+				clk_x = 520, clk_y = 390;
+				clk_x2 = 530, clk_y2 = 400;
+				strcpy(npc_name, "卖东西.武器商[亚维特岛]");
+			}
+			else if (rand_v == 1) { // 炼金师
+				clk_x = 910, clk_y = 368;
+				clk_x2 = 915, clk_y2 = 370;
+				strcpy(npc_name, "卖东西.炼金师[亚维特岛]");
+			}
+		}
+		else if (pi == 1) { // 首饰匠
+			clk_x = 810, clk_y = 540;
+			clk_x2 = 820, clk_y2 = 550;
+			strcpy(npc_name, "卖东西.首饰匠[亚维特岛]");
+		}
+		else if (pi == 2) { // 装备商
+			clk_x = 686, clk_y = 315;
+			clk_x2 = 698, clk_y2 = 320;
+			strcpy(npc_name, "卖东西.装备商[亚维特岛]");
+		}
 	}
-	else if (pi == 2) { // 首饰商
-		clk_x = 457, clk_y = 810;
-		clk_x2 = 459, clk_y2 = 815;
-		strcpy(npc_name, "卖东西.首饰商");
+	else {
+		if (pi == 0) {
+			clk_x = 197, clk_y = 425;
+			clk_x2 = 200, clk_y2 = 428;
+			is_select = false;
+		}
+		else if (pi == 1 || pi == 2) {
+			clk_x = 550, clk_y = 230;
+			clk_x2 = 570, clk_y2 = 250;
+			strcpy(npc_name, "卖东西.购买庆典礼花");
+		}
 	}
 
 	_npc_coor_ npcCoor;
@@ -2793,13 +3023,23 @@ void GameProc::SellItem()
 
 	//m_pGame->m_pEmulator->Tap(MyRand(clk_x, clk_x2), MyRand(clk_y, clk_y2));
 
-	m_pGame->m_pButton->ClickPic(m_pAccount->Wnd.Game, m_pAccount->Wnd.Pic, clk_x, clk_y); // 对话商店人物
-	m_pGame->m_pTalk->WaitTalkOpen(m_pAccount->Wnd.Pic);
-	Sleep(500);
+	if (is_select) {
+		m_pGame->m_pButton->ClickPic(m_pAccount->Wnd.Game, m_pAccount->Wnd.Pic, clk_x, clk_y); // 对话商店人物
+		m_pGame->m_pTalk->WaitTalkOpen(m_pAccount->Wnd.Pic);
+		Sleep(500);
+	}
+	
 _select_no_:
 	while (m_bPause) Sleep(100);
-	m_pGame->m_pTalk->Select(npc_name, m_pAccount->Wnd.Game, true); // 卖东西
-	Sleep(1500);
+	if (is_select) {
+		m_pGame->m_pTalk->Select(npc_name, m_pAccount->Wnd.Game, true); // 卖东西
+		Sleep(1500);
+	}
+	else {
+		m_pGame->m_pButton->ClickPic(m_pAccount->Wnd.Game, m_pAccount->Wnd.Pic, clk_x, clk_y); // 对话商店人物
+		Sleep(2000);
+	}
+		
 	if (!m_pGame->m_pItem->BagIsOpen()) {
 		goto _select_no_;
 	}
@@ -2818,13 +3058,23 @@ _select_no_:
 		Sleep(500);
 		m_pGame->m_pGameData->ReadCoor(&now_pos_x, &now_pos_y, m_pAccount);
 		GetNPCClickPos(&npcCoor, now_pos_x, now_pos_y, (DWORD&)clk_x, (DWORD&)clk_y);
-		m_pGame->m_pButton->ClickPic(m_pAccount->Wnd.Game, m_pAccount->Wnd.Pic, clk_x, clk_y); // 对话商店人物
-		m_pGame->m_pTalk->WaitTalkOpen(m_pAccount->Wnd.Pic);
+		if (is_select) {
+			m_pGame->m_pButton->ClickPic(m_pAccount->Wnd.Game, m_pAccount->Wnd.Pic, clk_x, clk_y); // 对话商店人物
+			m_pGame->m_pTalk->WaitTalkOpen(m_pAccount->Wnd.Pic);
+			Sleep(500);
+		}
 		Sleep(500);
 	_select_no2_:
 		while (m_bPause) Sleep(100);
-		m_pGame->m_pTalk->Select(npc_name, m_pAccount->Wnd.Game, true); // 购买物品
-		Sleep(1500);
+		if (is_select) {
+			m_pGame->m_pTalk->Select(npc_name, m_pAccount->Wnd.Game, true); // 卖东西
+			Sleep(1500);
+		}
+		else {
+			m_pGame->m_pButton->ClickPic(m_pAccount->Wnd.Game, m_pAccount->Wnd.Pic, clk_x, clk_y); // 对话商店人物
+			Sleep(2000);
+		}
+
 		if (!m_pGame->m_pItem->BagIsOpen()) {
 			goto _select_no2_;
 		}
@@ -2860,7 +3110,9 @@ _select_no_:
 		
 		LOG2(L"等待神尊冷却.", "c0 b");
 		Wait(wait_ms);
-		m_pGame->m_pMagic->UseShenZunTianJiang("雷鸣大陆");
+		if (strcmp(m_pGame->m_Setting.ShopMap, "雷鸣大陆") != 0) {
+			m_pGame->m_pMagic->UseShenZunTianJiang("雷鸣大陆");
+		}
 	}
 }
 
@@ -3016,6 +3268,13 @@ void GameProc::Small()
 #if 1
 	if (m_pStep->SmallV == 0) { // 出副本
 		AllOutFB(false);
+		if (!m_pGame->m_Setting.AtFBDoor) {
+			if (m_pGame->m_pShareTeam) {
+				//memset(m_pGame->m_pShareTeam->leavefbdoor, 1, sizeof(m_pGame->m_pShareTeam->leavefbdoor));
+			}
+			DbgPrint("离开副本口口\n");
+			LOGVARN2(32, "blue_r b", L"全部离开副本口口\n");
+		}
 	}
 	if (m_pStep->SmallV == 1) { // 进副本
 		m_pGame->m_pServer->SmallInFB(m_pGame->m_pBig, nullptr, 0);
@@ -3298,6 +3557,7 @@ bool GameProc::IsForegroundWindow()
 // 检查是否修改了数据
 bool GameProc::ChNCk()
 {
+	return true;
 	//printf("bool GameProc::ChNCk().\n");
 	FuncAddr func;
 	func.f = &Home::IsValid;

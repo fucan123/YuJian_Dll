@@ -20,12 +20,13 @@
 #define BUTTON_ID_CKIN_ITEM 0x486         // 仓库物品"存储物品栏"
 #define BUTTON_ID_CKIN_PGUP 0x488         // 仓库向上翻页按钮"U"
 #define BUTTON_ID_CKIN_PGDW 0x489         // 仓库向下翻页按钮"D"
-#define BUTTON_ID_CLOSEMENU 0x49C         // 通用菜单关闭按钮"C"或'x'或'X'
+#define BUTTON_ID_CLOSEMENU 0x49C         // 通用菜单关闭按钮"C"或'x'或'X'或关闭
 #define BUTTON_ID_REBORN_AT 0x4A2         // 原地复活"XP1"
 #define BUTTON_ID_REBORN    0x4A3         // 复活"XP2"
 #define BUTTON_ID_ROLEVIP   0x5AD         // 点开人物上面VIP按钮ID
 #define BUTTON_ID_BAG_PGUP  0x5C5         // 背包向上翻页按钮"up"
 #define BUTTON_ID_BAG_PGDW  0x5C6         // 背包向下翻页按钮"down"
+#define BUTTON_ID_FACE_BG   0x5F5         // 好友列表"FACE_BG"
 #define BUTTON_ID_VIP       0x44F         // VIP按钮ID
 #define BUTTON_ID_LIAOTIANB 0x649         // 聊天框拖动大小按钮"高度"
 #define BUTTON_ID_TEAMFLAG  0x713         // 同意入队那个旗帜按钮
@@ -38,6 +39,7 @@
 #define BUTTON_ID_SURE      0x8BA         // 确定按钮"接受"(副本邀请队员确定按钮)
 #define BUTTON_ID_CHECKIN   0x960         // 物品仓库按钮ID
 #define BUTTON_ID_LEAVE_LGC 0x9F1         // 离开练功房按钮"离开练功场"
+#define BUTTON_ID_XXX       0xAC9         // 关闭"X"
 #define BUTTON_ID_LOGIN     0xA30         // 登入按钮
 #define BUTTON_ID_ROLENO    0xD51         // 选择角色框[后面角色应该是+1递增]
 #define BUTTON_ID_SHJLIST   0xE2B         // 社交展开列表"" 好友是45,62
@@ -88,6 +90,8 @@ public:
 	void KeyDown(BYTE bVk);
 	// 按键
 	void KeyUp(BYTE bVk);
+	// 关闭按钮按钮
+	bool CloseButton(HWND game, int button_id, const char* text=nullptr);
 	// 点击屏幕坐标
 	bool ClickScreen(int x, int y, int flag = 0xff, bool left_click = true);
 	// 点击游戏画面

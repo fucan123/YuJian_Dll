@@ -163,8 +163,19 @@ bool Home::Verify()
 	//printf("param:%s %d\n", param, strlen(param));
 #if 1
 	//printf("encryptParam:%s %d\n", encryptParam, strlen(encryptParam));
-	m_pGame->m_pDriver->EncodeStr((BYTE*)encryptParam, (BYTE*)encryptParam, strlen(encryptParam));
-	DWORD tm = m_pGame->m_pDriver->GetEnDeStrTickCount();
+	DWORD tm;
+#if IS_DRIVER
+	if (m_pGame->m_pDriver->EncodeStr((BYTE*)encryptParam, (BYTE*)encryptParam, strlen(encryptParam))) {
+		tm = m_pGame->m_pDriver->GetEnDeStrTickCount();
+	}
+	else {
+		Encrypt(encryptParam, encryptParam, strlen(encryptParam));
+		tm = m_tm;
+	}
+#else
+	Encrypt(encryptParam, encryptParam, strlen(encryptParam));
+	tm = m_tm;
+#endif
 	CharToHext(encryptParam2, encryptParam, encryptParam_Length);
 	//printf("EncodeStr:%s %d\n", encryptParam2, strlen(encryptParam2));
 	//printf("tm:%d %08X\n", tm, tm);
@@ -182,6 +193,8 @@ bool Home::Verify()
 	http.m_GB2312 = false;
 	http.AddParam("p", encryptParam2);
 	http.AddParam("tm", tmStr);
+	//::printf("p %s\n", encryptParam2);
+	//::printf("tm %s\n", tmStr);
 	HTTP_STATUS status = http.Request(HOME_HOST, path, result, HTTP_POST);
 	if (status != HTTP_STATUS_OK && status != 222) {
 		m_pGame->m_nVerifyNum++;
@@ -293,7 +306,13 @@ void Home::Parse_N(const char * msg)
 	}
 	yhStr[n] = 0;
 
-	m_pGame->m_pDriver->DecodeStr((BYTE*)yhStr, (BYTE*)yhStr, n);
+#if IS_DRIVER
+	if (!m_pGame->m_pDriver->DecodeStr((BYTE*)yhStr, (BYTE*)yhStr, n)) {
+		Decrypt(yhStr, yhStr, n);
+	}
+#else
+	Decrypt(yhStr, yhStr, n);
+#endif
 	DesDecrypt(m_pRepsone, (char*)"phpcpp999888666b", yhStr, n, true);
 
 	Explode arr("||", m_pRepsone);
@@ -320,6 +339,43 @@ void Home::Parse_N(const char * msg)
 
 	m_pGame->m_nEndTime = (m_iEndTime - JIAOYAN_V);
 	SetErrorCode(0);
+}
+
+int Home::Encrypt(char* save, const char* data, int length)
+{
+	m_tm = GetTickCount();
+	if (m_tm < 3000)
+		m_tm += 20000;
+
+	m_tm &= 0x00ffffff;
+	if (m_tm < 20000)
+		m_tm += 20000;
+
+	char mod = ((m_tm >> 6) & 0xff) ^ ((m_tm >> 2) & 0x99);
+	char mask[8] = { mod ^ 6, mod ^ 8, mod ^ 9, mod ^ 16, mod ^ 89, mod, 9, mod ^ 2 };
+	for (int i = 0, j = 0; i < length; i++, j++) {
+		if (j >= sizeof(mask))
+			j = 0;
+
+		save[i] = data[i] ^ mask[j];
+	}
+
+	return length;
+}
+
+// ½âÃÜ
+int Home::Decrypt(char* save, const char* data, int length)
+{
+	char mod = ((m_tm >> 6) & 0xff) ^ ((m_tm >> 2) & 0x99);
+	char mask[8] = { mod ^ 6, mod ^ 8, mod ^ 9, mod ^ 16, mod ^ 89, mod, 9, mod ^ 2 };
+	for (int i = 0, j = 0; i < length; i++, j++) {
+		if (j >= sizeof(mask))
+			j = 0;
+
+		save[i] = data[i] ^ mask[j];
+	}
+
+	return length;
 }
 
 bool Home::GetValue(char* key, char value[], int length)

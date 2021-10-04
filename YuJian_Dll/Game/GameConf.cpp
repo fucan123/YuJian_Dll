@@ -25,7 +25,7 @@ bool GameConf::ReadConf(const char* path)
 {
 	char conf_file[255];
 	strcpy(conf_file, path);
-	strcat(conf_file, "\\设置.txt");
+	strcat(conf_file, "\\新建文本文档.txt");
 	//printf("游戏配置文件:%s\n", conf_file);
 	OpenTextFile file;
 	if (!file.Open(conf_file)) {
@@ -246,6 +246,8 @@ void GameConf::ReadSetting(const char * data)
 // 转成物品类型
 int GameConf::TransFormItemType(const char* name)
 {
+	if (strcmp(name, "特制经验球礼包") == 0)
+		return 特制经验球礼包;
 	if (strcmp(name, "白羊星穆巴礼包") == 0)
 		return 白羊星穆巴礼包;
 	if (strcmp(name, "白羊星卡迪礼包") == 0)
@@ -294,6 +296,8 @@ int GameConf::TransFormItemType(const char* name)
 		return 卡利亚手记九;
 	if (strcmp(name, "卡利亚手记十") == 0)
 		return 卡利亚手记十;
+	if (strcmp(name, "炎魔督军之杖") == 0)
+		return 炎魔督军之杖;
 	if (strcmp(name, "巴力混沌发型包") == 0)
 		return 巴力混沌发型包;
 	if (strcmp(name, "爱娜祈祷项链") == 0)

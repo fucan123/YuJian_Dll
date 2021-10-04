@@ -73,12 +73,14 @@ public:
 	void GetItemBtnPos(int& x, int& y, int index);
 	// 存入仓库
 	void CheckIn();
+	// 存入仓库
+	void CheckInOne(const char* name);
 	// 取出仓库
 	int CheckOut(ConfItemInfo* items, DWORD length);
 	// 取出一个仓库物品
 	int CheckOutOne(const char* name, bool open=false, bool close=false);
 	// 获取背包物品数量
-	int GetBagItemCount(const char* name);
+	int GetBagItemCount(const char* name, int* klybys=nullptr, int* qiu=nullptr);
 	// 获取快捷栏物品数量
 	int GetQuickYaoOrBaoNum(int& yaobao, int& yao, _account_* account=nullptr);
 	// 切换到技能快捷栏

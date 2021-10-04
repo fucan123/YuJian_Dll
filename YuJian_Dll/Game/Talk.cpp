@@ -12,6 +12,26 @@ Talk::Talk(Game* p)
 	m_pGame = p;
 }
 
+// 点击第几个好友
+bool Talk::ClickFaceBg(int no)
+{
+	int x = MyRand(50, 66);
+	int y = 0;
+	if (no == 1) {
+		y = MyRand(45, 50);
+	}
+	if (no == 2) {
+		y = MyRand(45, 50);
+	}
+	if (no == 3) {
+		y = MyRand(45, 50);
+	}
+	if (no == 4) {
+		y = MyRand(45, 50);
+	}
+	return false;
+}
+
 // 当有多个NPC在一起时, 会有NPC列表选择
 bool Talk::IsNeedCheckNPC()
 {
@@ -72,7 +92,7 @@ void Talk::Select(const char* name, HWND pic, bool show_log)
 
 	if (show_log) {
 		DbgPrint("选择:%hs(%d,%d) %d\n", name, x, y, moumov);
-		LOGVARN2(32, "c6", L"选择:%hs(%d,%d) %d", name, x, y, moumov);
+		LOGVARN2(32, "c6", L"选择:%hs(%d,%d)", name, x, y);
 	}
 		
 	m_pGame->m_pButton->ClickTalk(pic, x, y, true);
@@ -82,7 +102,7 @@ void Talk::Select(const char* name, HWND pic, bool show_log)
 bool Talk::NPCTalkStatus(HWND pic)
 {
 	HWND talkWnd = m_pGame->m_pButton->FindTalkWnd(pic);
-	//DbgPrint("NPCTalkStatus->talkWnd:%08X\n", talkWnd);
+	::printf("NPCTalkStatus->talkWnd:%08X\n", talkWnd);
 	return !m_pGame->m_pButton->IsDisabled(talkWnd);
 }
 
@@ -155,6 +175,12 @@ bool Talk::GetSelectClickPos(const char* name, int& click_x, int& click_y, HWND 
 
 	if (strcmp(name, "我要去雷鸣交易行") == 0) {
 		y = 185, y2 = 187;
+	}
+	else if (strcmp(name, "领取爱娜祈祷项链") == 0) {
+		y = 285, y2 = 288;
+	}
+	else if (strcmp(name, "领取特制经验球") == 0) {
+		y = 320, y2 = 323;
 	}
 	else if (strcmp(name, "挑战九星副本(阿拉玛)") == 0) {
 		y = 179, y2 = 180;
@@ -290,6 +316,21 @@ bool Talk::GetSelectClickPos(const char* name, int& click_x, int& click_y, HWND 
 	}
 	else if (strcmp(name, "卖东西.首饰商") == 0) {
 		y = 130, y2 = 135;
+	}
+	else if (strcmp(name, "卖东西.武器商[亚维特岛]") == 0) {
+		y = 130, y2 = 133;
+	}
+	else if (strcmp(name, "卖东西.炼金师[亚维特岛]") == 0) {
+		y = 160, y2 = 163;
+	}
+	else if (strcmp(name, "卖东西.首饰匠[亚维特岛]") == 0) {
+		y = 160, y2 = 163;
+	}
+	else if (strcmp(name, "卖东西.装备商[亚维特岛]") == 0) {
+		y = 130, y2 = 133;
+	}
+	else if (strcmp(name, "卖东西.购买庆典礼花") == 0) {
+		y = 172, y2 = 175;
 	}
 	else if (strcmp(name, "活动.全部直接合成+1或+2") == 0) {
 		y = 230, y2 = 233;

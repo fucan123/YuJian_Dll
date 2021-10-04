@@ -187,6 +187,7 @@ int GameData::WatchGame(bool first)
 		Sleep(8000);
 	}
 _end_:
+	//LOGVARP2(log, "c0", L"count[%d]", count);
 	return count;
 }
 
@@ -199,6 +200,7 @@ void GameData::FindGameWnd()
 // 获得游戏信息
 void GameData::FindGameInfo(_account_* account)
 {
+	::printf("1\n");
 	wchar_t log[64];
 	char role[128];
 	DWORD coor[2];
@@ -212,7 +214,7 @@ void GameData::FindGameInfo(_account_* account)
 		ReadProcessMemory(m_hGameProcess, (PVOID)(h3drole + ADDR_ROLE_NAME), role, sizeof(role), &readlen);
 		ReadProcessMemory(m_hGameProcess, (PVOID)(h3drole + ADDR_COOR_Y_OFFSET), coor, sizeof(coor), &readlen);
 
-		LOGVARP2(log, "c0", L"\n帐号:%hs 角色:%hs 坐标:%d,%d %d", user, role, coor[1], coor[0], account->GamePid);
+		LOGVARP2(log, "c0", L"\n帐号[%d]:%hs 角色:%hs 坐标:%d,%d %d", account->IsBig, user, role, coor[1], coor[0], account->GamePid);
 
 
 		account->Process = m_hGameProcess;
@@ -238,6 +240,7 @@ void GameData::FindGameInfo(_account_* account)
 		account->Wnd.PosX = m_pGame->m_pButton->FindButtonWnd(account->Wnd.Game, STATIC_ID_POS_X);
 		account->Wnd.PosY = m_pGame->m_pButton->FindButtonWnd(account->Wnd.Game, STATIC_ID_POS_Y);
 
+		::printf("big:%d %08X\n", account->IsBig, account->Addr.QuickItemNum);
 		if (!m_DataAddr.Bag) {
 			::SetForegroundWindow(account->Wnd.Game);
 
@@ -252,7 +255,14 @@ void GameData::FindGameInfo(_account_* account)
 		}
 		account->Addr.Bag = m_DataAddr.Bag;
 
+		::printf("big2:%d %08X\n", account->IsBig, account->Addr.QuickItemNum);
 		if (account->IsBig) {
+			while (!account->Addr.QuickItemNum) {
+				Sleep(500);
+				LOGVARP2(log, "c0", L"%hs Say 无法获取物品数量, 重试...", role);
+				ReadGameMemory(0x01);
+				account->Addr.QuickItemNum = m_DataAddr.QuickItemNum;
+			}
 			if (!m_DataAddr.Storage) {
 				m_pGame->m_pItem->OpenStorage();
 				Sleep(1000);
@@ -289,7 +299,7 @@ bool GameData::IsInArea(int x, int y, int allow, _account_* account)
 	int cx = (int)pos_x - x;
 	int cy = (int)pos_y - y;
 
-	//printf("IsInArea:%d,%d %d,%d\n", pos_x, pos_y, cx, cy);
+	printf("IsInArea:%d,%d %d,%d\n", pos_x, pos_y, cx, cy);
 
 	return abs(cx) <= allow && abs(cy) <= allow;
 }
@@ -332,31 +342,46 @@ bool GameData::IsTheMap(const char* map, _account_* account)
 }
 
 // 获取人物首地址
-bool GameData::FindQuickAddr()
+bool GameData::FindQuickAddr(int flag)
 {
-	m_pGame->WriteLog("FindQuickAddr.\n");
-	//DbgPrint("FindQuickAddr.\n");
+	if (0 && m_dwReadBase > 0x12600000 && m_dwReadBase < 0x12656910)
+		::printf("FindQuickAddr %08X.\n", m_dwReadBase);
 	// 4:0xCA000000 4:0xCA000000 4:0xCA000000 4:0x01 4:0x00 4:0x00 4:0x136 4:0x20
 	DWORD codes[] = {
 		0xCA000000, 0xCA000000, 0xCA000000, 0x00000001,
 		0x00000000, 0x00000000, 0x00000136, 0x00000020,
 	};
-	DWORD address = 0;
-	if (SearchCode(codes, sizeof(codes) / sizeof(DWORD), &address)) {
-		m_pGame->WriteLog("FindQuickAddr Success.\n");
-		DWORD type_addr = address + 0x20 + 0x200;
-		DWORD type = 0;
-		SIZE_T readlen = 0;
-		ReadProcessMemory(m_hGameProcess, (PVOID)type_addr, &type, sizeof(type), &readlen);
-		if (type == 0x02020202) {
-			m_DataAddr.QuickMagicNum = address + 0x20;
-			DbgPrint("(%s)技能快捷栏数量:%08X\n", m_pAccountTmp->Name, m_DataAddr.QuickMagicNum);
-			LOGVARN2(64, "blue", L"(%hs)技能快捷栏数量:%08X", m_pAccountTmp->Name, m_DataAddr.QuickMagicNum);
-		}
-		else {
-			m_DataAddr.QuickItemNum = address + 0x20;
-			DbgPrint("(%s)物品快捷栏数量:%08X\n", m_pAccountTmp->Name, m_DataAddr.QuickItemNum);
-			LOGVARN2(64, "blue", L"(%hs)物品快捷栏数量:%08X", m_pAccountTmp->Name, m_DataAddr.QuickItemNum);
+	DWORD address[2] = { 0, 0 };
+	int length = SearchCode(codes, sizeof(codes) / sizeof(DWORD), address, sizeof(address) / sizeof(DWORD));
+	if (length > 0) {
+		printf("FindQuickAddr Success %d.\n", length);
+		for (int i = 0; i < length; i++) {
+			DWORD type_addr = address[i] + 0x20 + 0x200;
+			DWORD type = 0;
+			SIZE_T readlen = 0;
+			ReadProcessMemory(m_hGameProcess, (PVOID)type_addr, &type, sizeof(type), &readlen);
+			int v02 = 0;
+			for (int i = 0; i <= 24; i += 8) {
+				if (((type >> i) & 0xff) == 0x02) {
+					v02++;
+				}
+			}
+			LOGVARN2(64, "blue", L"(%hs)type:%08X", m_pAccountTmp->Name, type);
+			if (v02 >= 2) {
+				m_DataAddr.QuickMagicNum = address[i] + 0x20;
+				DbgPrint("(%s)技能快捷栏数量:%08X\n", m_pAccountTmp->Name, m_DataAddr.QuickMagicNum);
+				LOGVARN2(64, "blue", L"(%hs)技能快捷栏数量:%08X", m_pAccountTmp->Name, m_DataAddr.QuickMagicNum);
+			}
+			else {
+				m_DataAddr.QuickItemNum = address[i] + 0x20;
+				DbgPrint("(%s)物品快捷栏数量:%08X\n", m_pAccountTmp->Name, m_DataAddr.QuickItemNum);
+				LOGVARN2(64, "blue", L"(%hs)物品快捷栏数量:%08X", m_pAccountTmp->Name, m_DataAddr.QuickItemNum);
+
+				int yao[2] = { 0, 0 };
+				m_pGame->m_pGameData->ReadMemory((PVOID)m_DataAddr.QuickItemNum, yao, sizeof(yao), m_pAccountTmp);
+				LOGVARN2(64, "blue", L"(%hs)药/包:{%d/%d}", m_pAccountTmp->Name, yao[0], yao[1]);
+			}
+			
 		}
 		m_pGame->WriteLog("FindQuickAddr Success p.\n");
 	}
@@ -375,7 +400,7 @@ bool GameData::FindLifeAddr()
 	};
 	DWORD address = 0;
 	if (SearchCode(codes, sizeof(codes) / sizeof(DWORD), &address, 1, 1)) {
-		m_DataAddr.Life = address + 0x14;
+		m_DataAddr.Life = address + 0x18;
 		DbgPrint("(%s)血量地址:%08X\n", m_pAccountTmp->Name, m_DataAddr.Life);
 		LOGVARN2(64, "blue", L"(%hs)血量地址:%08X", m_pAccountTmp->Name, m_DataAddr.Life);
 	}
@@ -617,26 +642,42 @@ DWORD GameData::SearchCode(DWORD* codes, DWORD length, DWORD* save, DWORD save_l
 		if ((i + length) > m_dwReadSize)
 			break;
 
+		DWORD* dw = (DWORD*)(m_pReadBuffer + i);
 		DWORD addr = m_dwReadBase + i;
 		if (addr == (DWORD)codes) { // 就是自己
 			//::printf("搜索到了自己:%08X %08X\n", codes, codes[0]);
 			//return 0;
 		}
 
-		DWORD* dw = (DWORD*)(m_pReadBuffer + i);
+		if (0 && addr == (DWORD)0x12656910) {
+			::printf("0x12656910:%08X\n", dw[0]);
+			for (int xxx = 0; xxx < 8; xxx++) {
+				::printf("%08X ", dw[xxx]);
+			}
+			::printf("\n");
+		}
 		bool result = true;
 		for (DWORD j = 0; j < length; j++) {
+			if (0 && addr == (DWORD)0x12656910) {
+				::printf("0x12656910:%08X == %08X %d\n", dw[j], codes[j], j);
+			}
 			if (codes[j] == 0x11) { // 不检查
 				result = true;
 			}
 			else if (codes[j] == 0x22) { // 需要此值不为0
 				if (dw[j] == 0) {
+					if (0 && addr == (DWORD)0x12656910) {
+						::printf("0x12656910:%08X != %08X %d 1\n", dw[j], codes[j], j);
+					}
 					result = false;
 					break;
 				}
 			}
 			else if (((codes[j] & 0xffff0000) == 0x12340000)) { // 低2字节相等
 				if ((dw[j] & 0x0000ffff) != (codes[j] & 0x0000ffff)) {
+					if (0 && addr == (DWORD)0x12656910) {
+						::printf("0x12656910:%08X != %08X %d 2\n", dw[j], codes[j], j);
+					}
 					result = false;
 					break;
 				}
@@ -646,6 +687,9 @@ DWORD GameData::SearchCode(DWORD* codes, DWORD length, DWORD* save, DWORD save_l
 			}
 			else if (((codes[j] & 0x0000ffff) == 0x00001234)) { // 高2字节相等
 				if ((dw[j] & 0xffff0000) != (codes[j] & 0xffff0000)) {
+					if (0 && addr == (DWORD)0x12656910) {
+						::printf("0x12656910:%08X != %08X %d 3\n", dw[j], codes[j], j);
+					}
 					result = false;
 					break;
 				}
@@ -654,20 +698,28 @@ DWORD GameData::SearchCode(DWORD* codes, DWORD length, DWORD* save, DWORD save_l
 				if ((codes[j] & 0xffffff00) == 0x00001100) { // 比较两个地址数值相等 最低8位为比较索引
 					//::printf("%X:%X %08X:%08X\n", j, codes[j] & 0xff, dw[j], dw[codes[j] & 0xff]);
 					if (dw[j] != dw[codes[j] & 0xff]) {
+						if (0 && addr == (DWORD)0x12656910) {
+							::printf("0x12656910:%08X != %08X %d 4\n", dw[j], codes[j], j);
+						}
 						result = false;
 						break;
 					}
 				}
 				else if (dw[j] != codes[j]) { // 两个数值不相等
 					if (0 && m_dwReadBase >= 0x247DD000 && m_dwReadBase < 0x247DE000 && i == 0) {
-						printf("%d.m_dwReadBase!=0x4F67C000 %08X=%08X\n", j, dw[j], codes[j]);
+						printf("%d.m_dwReadBase!=0x4F67C000 %08X=%08X 5\n", j, dw[j], codes[j]);
+					}
+					if (0 && addr == (DWORD)0x12656910) {
+						::printf("0x12656910:%08X != %08X %d \n", dw[j], codes[j], j);
 					}
 					result = false;
 					break;
 				}
 			}
 		}
-
+		if (0 && addr == (DWORD)0x12656910) {
+			::printf("0x12656910:%08X %d\n", dw[0], result);
+		}
 		if (result) {
 			m_pGame->WriteLog("result.\n");
 			save[count++] = addr;
@@ -785,7 +837,7 @@ bool GameData::ReadGameMemory(DWORD flag)
 		}
 		else {
 			DWORD pTmpReadAddress = ReadAddress;
-			DWORD dwOneReadSize = 0x1000; // 每次读取数量
+			DWORD dwOneReadSize = 0x10000; // 每次读取数量
 			DWORD dwReadSize = 0x00;      // 已读取数量
 			while (dwReadSize < mbi.RegionSize) {
 				m_dwReadBase = pTmpReadAddress;
@@ -824,7 +876,7 @@ bool GameData::ReadGameMemory(DWORD flag)
 							flag = 0;
 					}
 					if (!flag) {
-						DbgPrint("数据已全部找到\n");
+						::printf("数据已全部找到\n");
 						goto end;
 					}
 				}

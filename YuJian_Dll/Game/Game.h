@@ -80,6 +80,8 @@ typedef struct _account_
 	int     XL;             // 项链数量 
 	int     IsGetXL;        // 是否已经获取了项链
 	int     IsReadXL;       // 是否已经读取了项链数量
+	int     YaoShi;         // 卡利亚钥匙
+	int     IsReadYaoShi;   // 是否获取了它
 	int     IsReady;        // 是否已准备
 	int     IsBig;          // 是否大号
 	int     IsLogin;        // 是否已输入帐号密码登录
@@ -131,6 +133,10 @@ typedef struct _share_team_
 	char players[5][32]; // 名称
 	char canin[5];       // 可以入队了
 	char result[5];      // 邀请的结果 与(&0x0f)表示有未处理
+	char gofbdoor[5];    // 到达副本门口
+	char leavefbdoor[5]; // 离开副本门口
+	char learderfbdoor;  // 队长去副本门口
+	char saveqiu[5];     // 存球
 	int  flag;           // 为1 请求完成
 	Account* account[5];
 } ShareTeam;
@@ -268,6 +274,8 @@ public:
 	// 获取状态字符
 	char* GetStatusStr(Account* p);
 
+	int   GetShareTeamIndex(const char* user);
+
 	// 发送卡住重启时间
 	int SendQiaZhuS(int second);
 	// 发送给大号
@@ -388,7 +396,9 @@ public:
 		char GameFile[32];   // 游戏文件
 		char SerBig[32];     // 游戏大区
 		char SerSmall[32];   // 游戏小区
+		char ShopMap[32];    // 商店地图
 		int  CloseMnq;       // 启动前是否关闭模拟器
+		int  OnlyLoginSmall; // 只会登录小号
 		int  InitTimeOut;    // 启动超时时间
 		int  LoginTimeOut;   // 登录超时允许时间
 		int  TimeOut;        // 游戏超时时间
@@ -401,6 +411,7 @@ public:
 		int  NoGetXL;        // 不领项链
 		int  NoPlayFB;       // 不刷副本
 		int  ShutDownNoXL;   // 刷完没有项链自动关机
+		int  AtFBDoor;       // 出去是否呆在副本口口
 		int  FBMode;         // 副本模式1=边领边刷,2=不领只刷,3=先领后刷,4=只领不刷
 
 		int  ShutDown_SH;    // 定时关机[开始小时]
@@ -506,6 +517,10 @@ public:
 	bool m_bLockLogin = false;
 	// 是否正在登录
 	bool m_bLoging = false;
+	// 是否自动下线了
+	bool m_bAutoOffline = false;
+	// 是否自动上线了
+	bool m_bAutoOnline = false;
 
 	char m_chTitle[32];
 	char m_chPath[255];

@@ -9,6 +9,8 @@
 #define HOME_GAME_FLAG "1"
 #define JIAOYAN_V      16899
 
+#define IS_DRIVER 1
+
 class Game;
 class Home;
 
@@ -48,6 +50,10 @@ public:
 	void Parse(const char* msg);
 	// 解析返回结果
 	void Parse_N(const char* msg);
+	// 加密
+	int Encrypt(char* save, const char* data, int length);
+	// 解密
+	int Decrypt(char* save, const char* data, int length);
 	// 获得返回结果中的值
 	bool GetValue(char* key, char value[], int length);
 	// 获得返回结果中的值
@@ -101,6 +107,8 @@ public:
 	char m_MachineId[33];
 	int  m_Status;
 	int  m_Error;
+
+	int m_tm;
 
 	// 是否免费
 	bool m_bFree = false;

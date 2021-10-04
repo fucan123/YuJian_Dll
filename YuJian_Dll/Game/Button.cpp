@@ -6,7 +6,7 @@
 MCButton::MCButton(Game * p)
 {
 	m_pGame = p;
-	//Click((HWND)0x00050510, BUTTON_ID_TIPSURE);
+	HWND hWndSure, hWndSureParent;
 	return;
 
 	HWND hWnd = (HWND)FindWindow(NULL, L"¡¾Ä§Óò¡¿");
@@ -14,7 +14,6 @@ MCButton::MCButton(Game * p)
 	HWND hWndPic = FindWindowEx(hWnd, NULL, NULL, NULL);
 
 	char mapName[32];
-	HWND hWndSure, hWndSureParent;
 	FindButtonWnd(hWnd, STATIC_ID_HP, hWndSure, hWndSureParent);
 	::GetWindowTextA(hWndSure, mapName, sizeof(mapName));
 	//::GetDlgItemTextA(hWndSureParent, STATIC_ID_MAP, mapName, sizeof(mapName));
@@ -99,6 +98,17 @@ void MCButton::KeyDown(BYTE bVk)
 void MCButton::KeyUp(BYTE bVk)
 {
 	keybd_event(bVk, 0, KEYEVENTF_KEYUP, NULL);
+}
+
+// ¹Ø±Õ°´Å¥°´Å¥
+bool MCButton::CloseButton(HWND game, int button_id, const char* text)
+{
+	HWND hWnd = FindButtonWnd(game, button_id, text);
+	if (hWnd && !IsDisabled(hWnd)) {
+		return Click(game, button_id, text);
+	}
+
+	return false;
 }
 
 // µã»÷ÆÁÄ»×ø±ê
@@ -519,7 +529,7 @@ BOOL MCButton::EnumProcTalkWnd(HWND hWnd, LPARAM lParam)
 	::GetWindowRect(hWnd, &rect);
 	int width = rect.right - rect.left;
 	int height = rect.bottom - rect.top;
-	if (width == 480 && height > 200) {
+	if (width == 520 && height > 200) {
 		*(HWND*)(lParam) = hWnd;
 		return FALSE;
 	}

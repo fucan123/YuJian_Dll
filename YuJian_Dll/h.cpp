@@ -75,7 +75,7 @@ DWORD __stdcall InstallKeyProc(LPVOID lParam)
 }
 
 // 键盘钩子回调函数
-LRESULT KeyHookProc(int nCode, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK KeyHookProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
 	if (nCode < 0)
 		return CallNextHookEx(g_hook, nCode, wParam, lParam);
@@ -83,16 +83,14 @@ LRESULT KeyHookProc(int nCode, WPARAM wParam, LPARAM lParam)
 	if (wParam == WM_KEYDOWN) {
 		PKBDLLHOOKSTRUCT p = (PKBDLLHOOKSTRUCT)lParam;
 		UCHAR vKey = (UCHAR)p->vkCode;
-		if (vKey == 'P') {
-			game.m_pGameProc->m_bPause = true;
-			if (!game.m_bLoging) {
+		if (p->vkCode == VK_F12) {
+			if (game.m_pGameProc->m_bPause == false) {
+				game.m_pGameProc->m_bPause = true;
 				DbgPrint("游戏暂停\n");
 				game.AddUILog(L"游戏暂停", "red");
 			}
-		}
-		if (vKey == 'C') {
-			game.m_pGameProc->m_bPause = false;
-			if (!game.m_bLoging) {
+			else {
+				game.m_pGameProc->m_bPause = false;
 				DbgPrint("游戏继续\n");
 				game.AddUILog(L"游戏继续", "green");
 			}
@@ -113,7 +111,7 @@ DLLEXPORT void WINAPI EntryIn(HWND hWnd, const char* conf_path)
 #if 0
 	AllocConsole();
 	freopen("CON", "w", stdout);
-	//printf("Game_Init:%p\n", Game_Init);
+	::printf("EntryIn 5\n");
 #endif
 #if 0
 	pfnNtQuerySetInformationThread f = (pfnNtQuerySetInformationThread)GetNtdllProcAddress("ZwSetInformationThread");
@@ -127,8 +125,6 @@ DLLEXPORT void WINAPI EntryIn(HWND hWnd, const char* conf_path)
 
 	ExportDllFunc** p2 = (ExportDllFunc**)&conf_path[230];
 	ExportDllFunc* p = *p2;
-
-	printf("p:%p\n", p);
 
 	p->CloseGame = Game_CloseGame;
 	p->GetInCard = Game_GetInCard;

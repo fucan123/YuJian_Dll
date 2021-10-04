@@ -107,7 +107,7 @@ STEP_CODE GameStep::NextCode(vector<_step_*>& link)
 bool GameStep::ReadNPCCoor(const char * path)
 {
 	char file[255];
-	sprintf_s(file, "%s\\data\\pos.ini", path);
+	sprintf_s(file, "%s\\Cache\\n.ini", path);
 
 	printf("NPC×ø±êÎÄ¼þ:%s\n", file);
 	OpenTextFile hfile;

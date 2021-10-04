@@ -168,6 +168,12 @@ bool Magic::UseShenZunTianJiang(const char* map)
 			qx = MyRand(763, 863);
 			qy = MyRand(350, 360);
 		}
+		else if (strcmp(map, "亚维特岛") == 0) {
+			x = MyRand(680, 690);
+			y = MyRand(400, 405);
+			qx = MyRand(326, 360);
+			qy = MyRand(450, 460);
+		}
 		else {
 			DbgPrint("没有此区域:%s\n", map);
 			LOGVARP2(log, "red", L"没有此区域:%hs", map);
@@ -231,15 +237,15 @@ bool Magic::UseShenZunTianJiang(const char* map)
 BYTE Magic::GetMagicKey(const char* name)
 {
 	if (strcmp(name, "诸神裁决") == 0)
-		return VK_F1;
+		return VK_F6;
 	if (strcmp(name, "虚无空间") == 0)
-		return VK_F2;
-	if (strcmp(name, "星陨") == 0)       
-		return VK_F3;
-	if (strcmp(name, "影魂契约") == 0)
-		return VK_F4;
-	if (strcmp(name, "最终审判") == 0)
 		return VK_F5;
+	if (strcmp(name, "星陨") == 0)       
+		return VK_F4;
+	if (strcmp(name, "影魂契约") == 0)
+		return VK_F3;
+	if (strcmp(name, "最终审判") == 0)
+		return VK_F2;
 
 	return 0;
 }
@@ -253,26 +259,26 @@ int Magic::MagicIsOut(const char* name)
 
 	// 596, 753
 	int x = 0, y = 8, x2 = 0, y2 = 26;
-	if (strcmp(name, "虚无空间") == 0) {     // F2
+	if (strcmp(name, "最终审判") == 0) {     // F2
 		x = 40;
 		x2 = 60;
-	}
-	else if (strcmp(name, "星陨") == 0) {    // F3
-		x = 75;
-		x2 = 98;
-	}
-	else if (strcmp(name, "影魂契约") == 0) { // F4
-		x = 110;
-		x2 = 133;
-	}
-	else if (strcmp(name, "最终审判") == 0) { // F5
-		x = 145;
-		x2 = 168;
 
 		color = 0xFFFF0000;
 		diff = 0x00205050;
 
 		need_count = 20;
+	}
+	else if (strcmp(name, "影魂契约") == 0) {    // F3
+		x = 75;
+		x2 = 98;
+	}
+	else if (strcmp(name, "星陨") == 0) { // F4
+		x = 110;
+		x2 = 133;
+	}
+	else if (strcmp(name, "虚无空间") == 0) { // F5
+		x = 145;
+		x2 = 168;
 	}
 	else {
 		return -1;
