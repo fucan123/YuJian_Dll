@@ -265,19 +265,21 @@ void Game::Run()
 	while (true) Sleep(100);
 #endif
 #if 1
-	m_pGameProc->CreateTeam(m_pBig);
-	m_pGameProc->ViteInTeam(m_pBig);
+	if (!m_pGameProc->IsInFB(m_pBig)) {
+		m_pGameProc->CreateTeam(m_pBig);
+		m_pGameProc->ViteInTeam(m_pBig);
 
-	for (int x = 0; x < m_AccountList.size(); x++) {
-		if (IsOnline(m_AccountList[x]) && !m_AccountList[x]->IsBig) {
-			m_pGameProc->InTeam(m_AccountList[x]);
+		for (int x = 0; x < m_AccountList.size(); x++) {
+			if (IsOnline(m_AccountList[x]) && !m_AccountList[x]->IsBig) {
+				m_pGameProc->InTeam(m_AccountList[x]);
+			}
 		}
-	}
 
-	for (int x = 0; x < m_AccountList.size(); x++) {
-		if (IsOnline(m_AccountList[x]) && !m_AccountList[x]->IsBig) {
-			m_pGameProc->GoGetXiangLian(m_AccountList[x]);
-			m_pItem->GoShop();
+		for (int x = 0; x < m_AccountList.size(); x++) {
+			if (IsOnline(m_AccountList[x]) && !m_AccountList[x]->IsBig) {
+				m_pGameProc->GoGetXiangLian(m_AccountList[x]);
+				m_pItem->GoShop();
+			}
 		}
 	}
 #endif

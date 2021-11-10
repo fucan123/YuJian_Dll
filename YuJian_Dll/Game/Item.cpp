@@ -1054,7 +1054,7 @@ int Item::CheckOut(ConfItemInfo* items, DWORD length)
 	DbgPrint("取物用时:%.2f秒, %d毫秒\n", (float)_tm / 1000.0f, _tm);
 	LOGVARN2(64, "c0", L"取物用时:%d秒, %d毫秒", _tm / 1000, _tm);
 
-	return count;
+	return 168;
 }
 
 // 取出一个仓库物品
