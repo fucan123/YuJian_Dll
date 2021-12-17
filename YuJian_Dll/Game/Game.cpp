@@ -23,6 +23,7 @@
 #include <My/Common/mystring.h>
 #include <My/Common/OpenTextFile.h>
 #include <My/Common/Explode.h>
+#include <My/Common/C.h>
 #include <My/Driver/KbdMou.h>
 #include <My/Db/Sqlite.h>
 #include <My/Win32/Peb.h>
@@ -264,6 +265,29 @@ void Game::Run()
 	m_pMagic->UseCaiJue(100, 100);
 	while (true) Sleep(100);
 #endif
+
+#if 0
+	m_pGameProc->SwitchGameAccount(m_pBig);
+	m_pItem->CheckOut(m_pGameConf->m_stCheckIn.CheckIns, m_pGameConf->m_stCheckIn.Length);
+	return;
+
+	m_pGameProc->Transaction(m_pBig, m_AccountList[1]);
+	return;
+
+	bool r = m_pGame->m_pButton->Click(m_pBig->Wnd.Game, 0xFDE, "同意校验框", 3, 3); // 异地需要打勾
+	Sleep(1000);
+
+	HWND hConTraBtn = m_pGame->m_pButton->FindButtonWnd(m_pBig->Wnd.Game, 0x9B1, "继续交易");
+
+	RECT rect;
+	::GetWindowRect(hConTraBtn, &rect);
+	::SetCursorPos(rect.left + 3, rect.top + 3);
+	Sleep(100);
+	bool r2 = m_pGame->m_pButton->Click(m_pBig->Wnd.Game, 0x9B1, "继续交易", 3, 3); // 继续交易
+	::printf("r:%d %d\n", r, r2);
+	return;
+#endif
+
 #if 1
 	if (!m_pGameProc->IsInFB(m_pBig)) {
 		m_pGameProc->CreateTeam(m_pBig);
@@ -285,6 +309,8 @@ void Game::Run()
 #endif
 	// while (true) Sleep(168);
 	m_pGameProc->SwitchGameAccount(m_pBig);
+	m_pGame->m_pButton->Click(m_pBig->Wnd.Game, BUTTON_ID_CLOSEMENU, "x");
+	Sleep(500);
 
 #if IS_READ_MEM == 0
 	m_pGame->m_pGameProc->Wait(5 * 1000);
@@ -344,6 +370,33 @@ void Game::Inject(DWORD pid, const wchar_t* dll_file, const wchar_t* short_name)
 	InjectDll(pid, new_file, short_name, true);
 }
 
+// 自动交易
+bool Game::AutoTransaction()
+{
+	if (!m_pBig) {
+		LOG2(L"没有大号, 无法交易.", "red");
+		return false;
+	}
+	if (!m_pTransaction) {
+		LOG2(L"没有交易号, 无法交易.", "red");
+		return false;
+	}
+
+	SetLoginFlag(-1);
+	Login(m_pBig, 1);
+	Login(m_pTransaction, 1);
+	LoginCompleted("自动交易.");
+
+	while (!m_pTransaction->IsCanTrans) {
+		Sleep(500);
+	}
+
+	Sleep(1000);
+	m_pGameProc->Transaction(m_pBig, m_pTransaction);
+
+	return true;
+}
+
 // 自动登号
 bool Game::AutoLogin(const char* remark)
 {
@@ -368,10 +421,17 @@ bool Game::AutoLogin(const char* remark)
 
 		if (m_AccountList[i]->IsBig && m_Setting.OnlyLoginSmall)
 			continue;
-
-		if (IsOnline(m_AccountList[i]) || CheckStatus(m_AccountList[i], ACCSTA_COMPLETED))
+		if (m_AccountList[i]->IsTransaction) {
+			login_num--;
 			continue;
-
+		}
+			
+		::printf("%s %08X\n", m_AccountList[i]->Name, m_AccountList[i]->Status);
+		if (IsOnline(m_AccountList[i]) || CheckStatus(m_AccountList[i], ACCSTA_COMPLETED)) {
+			login_num--;
+			continue;
+		}
+			
 		DbgPrint("准备进入游戏:%d/%d\n", login_num, m_iLoginCount);
 		LOGVARP2(log, "c0", L"准备进入游戏:%d/%d", login_num, m_iLoginCount);
 		Login(m_AccountList[i], login_num);
@@ -414,7 +474,7 @@ void Game::Login(Account* p, int index)
 			DbgPrint("%hs Say 选择游戏区\n", p->Name);
 			LOGVARP2(log, "c6", L"%hs Say 选择游戏区", p->Name);
 			SelectServer(p->Wnd.Pic); // 选择
-			Sleep(1500);
+			Sleep(3500);
 
 			DbgPrint("%hs Say 输入账号密码\n", p->Name);
 			LOGVARP2(log, "c6", L"%hs Say 输入账号密码", p->Name);
@@ -626,6 +686,9 @@ void Game::Login(Account* p, int index)
 				}
 
 				HWND hErrorWnd = ::FindWindow(NULL, L"Error");
+				if (!hErrorWnd)
+					hErrorWnd = ::FindWindow(NULL, L"提示");
+
 				if (hErrorWnd) {
 					HWND hSureBtn = ::FindWindowEx(hErrorWnd, NULL, NULL, L"确定");
 					::printf("error:%08X %08X\n", DWORD(hErrorWnd), DWORD(hSureBtn));
@@ -634,7 +697,7 @@ void Game::Login(Account* p, int index)
 					LOGVARP2(log, "red", L"%hs Say 登录不成功, 8秒重新登录", p->Name);
 					Sleep(8000);
 
-					InputUserPwd(p, false); // 输入吧
+					InputUserPwd(p, true); // 输入吧
 					Sleep(2000);
 					continue;
 				}
@@ -770,7 +833,8 @@ void Game::InputUserPwd(Account* p, bool input_user)
 			}
 			for (i = eq_num; i < strlen(p->Name); i++) {
 				Keyborad(p->Name[i]);
-				Sleep(200);
+				Sleep(350);
+				::printf("输入:%c\n", p->Name[i]);
 			}
 		}
 	}
@@ -779,7 +843,7 @@ void Game::InputUserPwd(Account* p, bool input_user)
 	Sleep(1000);
 	for (i = 0; i < strlen(p->Password); i++) {
 		Keyborad(p->Password[i]);
-		Sleep(200);
+		Sleep(350);
 	}
 
 	LeftClick(p->Wnd.Pic, 265, 430); // 进入
@@ -809,13 +873,13 @@ void Game::Keyborad(int key, bool tra)
 	LPARAM lParam = (MapVirtualKey(key, 0) << 16) + 1;
 	if (is_caps) {
 		keybd_event(VK_SHIFT, MapVirtualKey(VK_SHIFT, 0), 0, 0);
-		Sleep(100);
+		Sleep(300);
 	}
 	keybd_event(key, MapVirtualKey(key, 0), 0, 0);
-	Sleep(100);
+	Sleep(300);
 	keybd_event(key, MapVirtualKey(key, 0), KEYEVENTF_KEYUP, 0);
 	if (is_caps) {
-		Sleep(100);
+		Sleep(300);
 		keybd_event(VK_SHIFT, MapVirtualKey(VK_SHIFT, 0), KEYEVENTF_KEYUP, 0);
 	}
 }
@@ -841,7 +905,7 @@ void Game::AutoLogout()
 }
 
 // 退出
-void Game::LogOut(Account* p)
+void Game::LogOut(Account* p, bool leave_team)
 {
 	wchar_t log[64];
 	m_pGameProc->SetForegroundWindow(p);
@@ -861,17 +925,27 @@ void Game::LogOut(Account* p)
 		//memcpy(m_pShareTeam->closer, p->Name, sizeof(p->Name));
 	}
 	Sleep(1000);
-	m_pGame->m_pButton->Click(p->Wnd.Game, BUTTON_ID_TEAM, "组队");
-	Sleep(1000);
-	m_pGame->m_pButton->Click(p->Wnd.Game, 0x443);
-	Sleep(1000);
-	m_pGame->m_pButton->Click(p->Wnd.Game, 0x477, "确定");
-	Sleep(1000);
+
+
+	if (leave_team) {
+		m_pItem->CloseStorage(p->Wnd.Pic); // 关闭仓库
+		Sleep(1000);
+
+
+		m_pGame->m_pButton->Click(p->Wnd.Game, BUTTON_ID_TEAM, "组队");
+		Sleep(1000);
+		m_pGame->m_pButton->Click(p->Wnd.Game, 0x443);
+		Sleep(1000);
+		m_pGame->m_pButton->Click(p->Wnd.Game, 0x477, "确定");
+		Sleep(1000);
+	}
 
 	TerminateProcess(p->Process, 0);
 
 	p->XL = 0;
 	p->IsReadXL = 0;
+	p->IsCanTrans = 0;
+	p->GamePid = 0;
 	ZeroMemory(&p->Wnd, sizeof(p->Wnd));
 	ZeroMemory(&p->Addr, sizeof(p->Addr));
 	SetStatus(p, ACCSTA_COMPLETED, true);
@@ -893,15 +967,17 @@ void Game::LoginCompleted(const char* remark)
 	m_iLoginFlag = -2;
 	m_iLoginCount = 0;
 	DbgPrint("已全部登入游戏\n");
-	LOGVARN2(64, "blue", L"已全部登入游戏\n");
+	LOGVARN2(64, "blue", L"已全部登入游戏:%hs\n", remark);
 }
 
 // 设置登号类型
 void Game::SetLoginFlag(int flag)
 {
+	::printf("SetLoginFlag:%d %d\n", flag, IsAutoLogin());
 	if (!IsAutoLogin()) { // 已登录完成
 		m_iLoginFlag = flag;
 		m_iLoginCount = GetLoginCount();
+		::printf("m_iLoginCount:%d\n", m_iLoginCount);
 	}
 	m_iLoginIndex = flag;
 
@@ -920,6 +996,9 @@ int Game::GetLoginCount()
 	int max =  m_Setting.OnlyLoginSmall ? 100 : MAX_ACCOUNT_LOGIN;
 	int count = 0;
 	for (int i = 0; i < m_AccountList.size(); i++) {
+		if (m_AccountList[i]->IsTransaction)
+			continue;
+
 		if (IsLogin(m_AccountList[i])) {
 			max--;
 		}
@@ -930,6 +1009,8 @@ int Game::GetLoginCount()
 		}
 			
 	}
+
+	::printf("count:%d\n", count);
 	return count;
 }
 
@@ -959,18 +1040,48 @@ int Game::CheckLoginTimeOut()
 			SetStatus(m_AccountList[i], ACCSTA_INIT, true);
 		}
 
+		DWORD pids[20];
+		DWORD len = SGetProcessIds(L"soul.exe", pids, sizeof(pids) / sizeof(DWORD));
+		for (int i = 0; i < len; i++) {
+			HANDLE hProcess = ::OpenProcess(PROCESS_ALL_ACCESS, FALSE, pids[i]);
+			TerminateProcess(hProcess, 0);
+			Sleep(500);
+		}
+
 		Sleep(5000);
 
 		SYSTEMTIME stLocal;
 		::GetLocalTime(&stLocal);
 
 		wchar_t exe[MAX_PATH], cmdline[32];
-		GetModuleFileName(NULL, exe, MAX_PATH);
+		::GetModuleFileName(NULL, exe, MAX_PATH);
 		::wsprintfW(cmdline, L"x%dx", stLocal.wDay);
 
 		LPWSTR c = ::GetCommandLineW();
+		//if (wcsstr(c, cmdline) == nullptr)
+
+		char file[255], content[16] = { 0 };
+		strcpy(file, m_chPath);
+		strcat(file, "\\offline.txt");
+
+		file_get_contents(file, content, sizeof(content));
+		int day = atoi(content);
 		//::MessageBox(NULL, c, L"X", MB_OK);
-		if (wcsstr(c, cmdline) == nullptr) {
+		if (day != stLocal.wDay) {
+			sprintf_s(content, "%d", stLocal.wDay);
+			file_put_contents(file, content);
+
+			char cc[255], num[16];
+			strcpy(cc, m_chPath);
+			strcat(cc, "\\tmp.txt");
+			FILE* f = fopen(cc, "a+");
+			::fgets(num, sizeof(num), f);
+			::fclose(f);
+			int n = atoi(num);
+			sprintf_s(num, "%d", n + 1);
+			f = fopen(cc, "w+");
+			::fputs(num, f);
+			::fclose(f);
 			//::MessageBox(NULL, exe, L"X", MB_OK);
 #if 0
 			//重启程序
@@ -1009,11 +1120,82 @@ int Game::CheckLoginTimeOut()
 			}
 		}
 	}
-	// 定时登录
-	if (IsInTime(m_Setting.AutoLogin_SH, m_Setting.AutoLogin_SM, m_Setting.AutoLogin_EH, m_Setting.AutoLogin_EM)) {
+	// 掉线重启
+	if (!m_bRestarting && file_exists("./Cache/Offline.tmp")) {
+		unlink("./Cache/Offline.tmp");
 		if (GetOnLineCount() < MAX_ACCOUNT_LOGIN) {
 			AutoPlay(-1, false);
 			return 0;
+		}
+	}
+	// 定时登录
+	if (IsInTime(m_Setting.AutoLogin_SH, m_Setting.AutoLogin_SM, m_Setting.AutoLogin_EH, m_Setting.AutoLogin_EM)) {
+		if (GetOnLineCount() < MAX_ACCOUNT_LOGIN) {
+			AutoPlay(-1, false, true);
+			return 0;
+		}
+	}
+	// 定时换号
+	if (IsInTime(m_Setting.SwitchLogin_SH, m_Setting.SwitchLogin_SM, m_Setting.SwitchLogin_EH, m_Setting.SwitchLogin_EM)) {
+		char logfile[255], cc[255];
+		strcpy(logfile, m_chPath);
+		strcat(logfile, "\\switch.txt");
+		strcpy(cc, m_chPath);
+		strcat(cc, "\\tmp.txt");
+
+		char num[16] = { 0 };
+		FILE* f = fopen(logfile, "a+");
+		::fgets(num, sizeof(num), f);
+		::fclose(f);
+		int n = atoi(num);
+		SYSTEMTIME stLocal;
+		::GetLocalTime(&stLocal);
+
+		if (n != stLocal.wDay) {
+			sprintf_s(num, "%d", stLocal.wDay);
+			f = fopen(logfile, "w+");
+			::fputs(num, f);
+			::fclose(f);
+
+			num[0] = 0;
+			f = fopen(cc, "a+");
+			::fgets(num, sizeof(num), f);
+			::fclose(f);
+			n = atoi(num);
+			sprintf_s(num, "%d", n + 1);
+			f = fopen(cc, "w+");
+			::fputs(num, f);
+			::fclose(f);
+
+			for (int i = 0; i < m_AccountList.size(); i++) {
+				if (IsOnline(m_AccountList[i])) {
+					LogOut(m_AccountList[i]);
+				}
+
+				SetStatus(m_AccountList[i], ACCSTA_INIT, true);
+			}
+
+			DWORD pids[20];
+			DWORD len = SGetProcessIds(L"soul.exe", pids, sizeof(pids) / sizeof(DWORD));
+			for (int i = 0; i < len; i++) {
+				HANDLE hProcess = ::OpenProcess(PROCESS_ALL_ACCESS, FALSE, pids[i]);
+				TerminateProcess(hProcess, 0);
+				Sleep(500);
+			}
+
+			Sleep(5000);
+
+			wchar_t path[MAX_PATH], exe[MAX_PATH];
+			::GetCurrentDirectory(MAX_PATH, path);
+			::GetModuleFileName(NULL, exe, MAX_PATH);
+			::wsprintfW(path, L"%ws\\StartApp.exe", path);
+			ShellExecute(NULL, L"open", path,
+				exe, NULL, SW_SHOWNORMAL);
+
+			Sleep(1000);
+			::PostMessage(m_hUIWnd, WM_SYSCOMMAND, SC_CLOSE, NULL);
+			TerminateProcess(GetCurrentProcess(), 0);
+
 		}
 	}
 
@@ -1237,7 +1419,7 @@ Account * Game::GetAccountByRole(const char* role)
 Account* Game::GetAccountByStatus(int status)
 {
 	for (int i = 0; i < m_AccountList.size(); i++) {
-		if (m_AccountList[i]->Status & status) {
+		if (!m_AccountList[i]->IsTransaction && m_AccountList[i]->Status & status) {
 			LOGVARN(64, L"获取帐号:%hs[%08X|%08X]", m_AccountList[i]->Name, m_AccountList[i]->Status, status);
 			return m_AccountList[i];
 		}
@@ -1297,7 +1479,7 @@ Account* Game::GetNextLoginAccount()
 		::printf("for (int i = 0; i < m_AccountList.size(); i++) \n");
 		LOG2(L"全部账号已完成, 准备获取已完成账号.", "red");
 		for (int i = 0; i < m_AccountList.size(); i++) {
-			if (!IsOnline(m_AccountList[i])) { // 不在线
+			if (!m_AccountList[i]->IsTransaction && !IsOnline(m_AccountList[i])) { // 不在线
 				p = m_AccountList[i];
 				SetStatus(p, ACCSTA_INIT, true); // 更新帐号状态
 				p->IsReadXL = 0;
@@ -1714,15 +1896,30 @@ DWORD Game::ReadConf()
 
 	strcpy(path, m_chPath);
 	strcpy(logfile, m_chPath);
-	strcat(path, "\\新建文本文档2.txt");
-	strcat(logfile, "\\日记.txt");
+	strcat(logfile, "\\tmp.txt");
 
 	Asm_Nd(GetCurrentThread(), GetNdSysCallIndex()); // 禁止反调试
+
+	char num[16] = { 0 };
+	FILE* f = fopen(logfile, "a+");
+	::fgets(num, sizeof(num), f);
+	::fclose(f);
+	int n = atoi(num);
+	::printf("num:%d\n", n);
+
+	if (n & 0x01) {
+		strcat(path, "\\新建文本文档3.txt");
+		LOG2(L"账号文件: <b class=\"blue\">新建文本文档3</b>", "c0");
+	}
+	else {
+		strcat(path, "\\新建文本文档2.txt");
+		LOG2(L"账号文件: <b class=\"blue\">新建文本文档2</b>", "c0");
+	}
 
 	::printf("帐号文件:%hs\n", path);
 	OpenTextFile file;
 	if (!file.Open(path)) {
-		::printf("找不到'新建文本文档2.txt'文件！！！");
+		::printf("找不到'%s'文件！！！", path);
 		return false;
 	}
 
@@ -1760,6 +1957,7 @@ DWORD Game::ReadConf()
 			strcpy(p->Role,    "--");
 			p->RoleNo = explode.GetValue2Int(2);
 			p->IsBig = explode.GetCount() > 3 && strcmp(explode[3], "大号") == 0;
+			p->IsTransaction = explode.GetCount() > 3 && strcmp(explode[3], "交易") == 0;
 			p->OfflineLogin = 1;
 			p->Status = ACCSTA_INIT;
 			GetStatusStr(p);
@@ -1771,6 +1969,8 @@ DWORD Game::ReadConf()
 
 			if (!m_pBig && p->IsBig)
 				m_pBig = p;
+			if (p->IsTransaction)
+				m_pTransaction = p;
 		}
 	}
 
@@ -1817,6 +2017,9 @@ void Game::ReadSetting(const char* data)
 	else if (strcmp(explode[0], "模拟器路径") == 0) {
 		strcpy(m_Setting.MnqPath, explode[1]);
 		m_pEmulator->SetPath(m_Setting.MnqPath);
+	}
+	else if (strcmp(explode[0], "交易次数") == 0) {
+		m_Setting.TransactionNum = explode.GetValue2Int(1);
 	}
 	else if (strcmp(explode[0], "游戏路径") == 0) {
 		strcpy(m_Setting.GamePath, explode[1]);
@@ -1926,6 +2129,24 @@ void Game::ReadSetting(const char* data)
 		SetSetting("autologin_eh", m_Setting.AutoLogin_EH);
 		SetSetting("autologin_em", m_Setting.AutoLogin_EM);
 	}
+	else if (strcmp(explode[0], "定时换号") == 0) {
+		Explode t("-", explode[1]);
+		if (t[0]) {
+			Explode* s = new Explode(":", t[0]);
+			m_Setting.SwitchLogin_SH = s->GetValue2Int(0);
+			m_Setting.SwitchLogin_SM = s->GetValue2Int(1);
+			delete s;
+		}
+		if (t[1]) {
+			Explode* e = new Explode(":", t[1]);
+			m_Setting.SwitchLogin_EH = e->GetValue2Int(0);
+			m_Setting.SwitchLogin_EM = e->GetValue2Int(1);
+			delete e;
+		}
+
+		::printf("定时换号:%d:%d-%d:%d\n", m_Setting.SwitchLogin_SH, m_Setting.SwitchLogin_SM,
+			m_Setting.SwitchLogin_EH, m_Setting.SwitchLogin_EM);
+	}
 
 	//printf("配置.%s: %s%s\n", explode[0], explode[1], tmp);
 	//LOGVARN2(64, "cb", L"配置.%hs: %hs%hs", explode[0], explode[1], tmp);
@@ -1991,6 +2212,39 @@ void Game::SetSetting(const char* name, int v)
 	msg->value[0] = v;
 	msg->value[1] = 0;
 	PostMessage(m_hUIWnd, MSG_CALLJS, (WPARAM)msg, 0);
+}
+
+// 重新启动程序和下号
+void Game::RestartApp()
+{
+	for (int i = 0; i < m_AccountList.size(); i++) {
+		if (IsOnline(m_AccountList[i])) {
+			LogOut(m_AccountList[i]);
+		}
+
+		SetStatus(m_AccountList[i], ACCSTA_INIT, true);
+	}
+
+	DWORD pids[20];
+	DWORD len = SGetProcessIds(L"soul.exe", pids, sizeof(pids) / sizeof(DWORD));
+	for (int i = 0; i < len; i++) {
+		HANDLE hProcess = ::OpenProcess(PROCESS_ALL_ACCESS, FALSE, pids[i]);
+		TerminateProcess(hProcess, 0);
+		Sleep(500);
+	}
+
+	Sleep(5000);
+
+	wchar_t path[MAX_PATH], exe[MAX_PATH];
+	::GetCurrentDirectory(MAX_PATH, path);
+	::GetModuleFileName(NULL, exe, MAX_PATH);
+	::wsprintfW(path, L"%ws\\StartApp.exe", path);
+	ShellExecute(NULL, L"open", path,
+		exe, NULL, SW_SHOWNORMAL);
+
+	Sleep(1000);
+	::PostMessage(m_hUIWnd, WM_SYSCOMMAND, SC_CLOSE, NULL);
+	TerminateProcess(GetCurrentProcess(), 0);
 }
 
 // 设置
@@ -2166,7 +2420,7 @@ int Game::InstallDll()
 }
 
 // 自动登号
-int Game::AutoPlay(int index, bool stop)
+int Game::AutoPlay(int index, bool stop, bool trans)
 {
 	//m_pJsCall->SetBtnDisabled("start_btn", 1);
 	if (stop) {
@@ -2175,11 +2429,16 @@ int Game::AutoPlay(int index, bool stop)
 		//m_pJsCall->SetBtnDisabled("start_btn", 0);
 		return 1;
 	}
+
 	if (IsAutoLogin())
 		return 0;
 
 	if (m_bLoging)
 		return 0;
+
+	if (trans && m_pTransaction) {
+		AutoTransaction();
+	}
 
 	m_bLoging = true;
 	SetLoginFlag(index);
@@ -2202,6 +2461,9 @@ void Game::AddAccount(Account * account)
 	name += account->Name;
 	if (account->IsBig) {
 		name += L"[大号]";
+	}
+	if (account->IsTransaction) {
+		name += L"[交易]";
 	}
 	name += L"</b>";;
 

@@ -63,6 +63,8 @@ public:
 	void CreateTeam(_account_* account);
 	// 邀请入队
 	void ViteInTeam(_account_* account);
+	// 交易 
+	void Transaction(_account_* master, _account_* sma);
 	// 入队
 	void InTeam(_account_* account);
 	// 邀请进入副本
@@ -84,7 +86,7 @@ public:
 	// 询问项链数量
 	_account_*  AskXiangLian();
 	// 去副本门口
-	void GoFBDoor(_account_* account, int num=0);
+	bool GoFBDoor(_account_* account, int num=0);
 	// 开启副本
 	_account_* OpenFB(bool go_leiming=false);
 	// 所有出副本big=大号要出去否

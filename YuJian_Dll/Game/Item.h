@@ -12,7 +12,7 @@ public:
 	// 打开背包
 	bool OpenBag();
 	// 关闭背包
-	void CloseBag();
+	void CloseBag(HWND hWnd=0);
 	// 整理背包
 	void SetBag();
 	// 滑动背包
@@ -22,7 +22,7 @@ public:
 	// 滑动仓库
 	bool SlideStorge(int page);
 	// 关闭仓库
-	void CloseStorage();
+	void CloseStorage(HWND hWnd=NULL);
 	// 加满血
 	void AddFullLife();
 	// 使用药
@@ -76,9 +76,11 @@ public:
 	// 存入仓库
 	void CheckInOne(const char* name);
 	// 取出仓库
-	int CheckOut(ConfItemInfo* items, DWORD length);
+	int CheckOut(ConfItemInfo* items, DWORD length, bool save_money=true);
 	// 取出一个仓库物品
 	int CheckOutOne(const char* name, bool open=false, bool close=false);
+	// 交易
+	int TransactionItem();
 	// 获取背包物品数量
 	int GetBagItemCount(const char* name, int* klybys=nullptr, int* qiu=nullptr);
 	// 获取快捷栏物品数量

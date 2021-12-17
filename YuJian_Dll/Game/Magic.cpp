@@ -213,7 +213,7 @@ bool Magic::UseShenZunTianJiang(const char* map)
 				if (m_pGame->m_pGameProc->CloseTipBox()) {
 					DbgPrint("确定此传送.\n");
 					LOG2(L"确定此传送.", "c0 b");
-					m_pGame->m_pGameProc->Wait(10 * 1000);
+					m_pGame->m_pGameProc->Wait(15 * 1000);
 					
 					DWORD now_x, now_y;
 					m_pGame->m_pGameData->ReadCoor(&now_x, &now_y, m_pGame->m_pGameProc->m_pAccount);

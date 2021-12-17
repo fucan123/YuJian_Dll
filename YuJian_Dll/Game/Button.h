@@ -27,7 +27,7 @@
 #define BUTTON_ID_BAG_PGUP  0x5C5         // 背包向上翻页按钮"up"
 #define BUTTON_ID_BAG_PGDW  0x5C6         // 背包向下翻页按钮"down"
 #define BUTTON_ID_FACE_BG   0x5F5         // 好友列表"FACE_BG"
-#define BUTTON_ID_VIP       0x44F         // VIP按钮ID
+#define BUTTON_ID_VIP       0x44F         // VIP按钮ID"VIP"
 #define BUTTON_ID_LIAOTIANB 0x649         // 聊天框拖动大小按钮"高度"
 #define BUTTON_ID_TEAMFLAG  0x713         // 同意入队那个旗帜按钮
 #define BUTTON_ID_ITEM      0x751         // 物品快捷键"物品"
@@ -37,7 +37,7 @@
 #define BUTTON_ID_INTEAM    0x45A         // 同意入队按钮"同意"
 //#define BUTTON_ID_INTEAM    0x815         // 同意入队按钮
 #define BUTTON_ID_SURE      0x8BA         // 确定按钮"接受"(副本邀请队员确定按钮)
-#define BUTTON_ID_CHECKIN   0x960         // 物品仓库按钮ID
+#define BUTTON_ID_CHECKIN   0x960         // 物品仓库按钮ID"VIP界面---使用仓库"
 #define BUTTON_ID_LEAVE_LGC 0x9F1         // 离开练功房按钮"离开练功场"
 #define BUTTON_ID_XXX       0xAC9         // 关闭"X"
 #define BUTTON_ID_LOGIN     0xA30         // 登入按钮

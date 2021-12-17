@@ -105,6 +105,15 @@ bool MCButton::CloseButton(HWND game, int button_id, const char* text)
 {
 	HWND hWnd = FindButtonWnd(game, button_id, text);
 	if (hWnd && !IsDisabled(hWnd)) {
+		if (button_id == BUTTON_ID_CLOSEMENU && text && text[0] == 'x') {
+			HWND h2 = ::GetNextWindow(hWnd, GW_HWNDNEXT);
+			if (h2) {
+				int id = ::GetDlgCtrlID(h2);
+				if (id == 0x8C3) { // 最大化按钮
+					return false;
+				}
+			}
+		}
 		return Click(game, button_id, text);
 	}
 

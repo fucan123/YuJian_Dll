@@ -84,6 +84,8 @@ typedef struct _account_
 	int     IsReadYaoShi;   // 是否获取了它
 	int     IsReady;        // 是否已准备
 	int     IsBig;          // 是否大号
+	int     IsTransaction;  // 是否交易号
+	int     IsCanTrans;     // 是否可以交易 交易号标志位
 	int     IsLogin;        // 是否已输入帐号密码登录
 	int     IsLeadear;      // 是否是队长了
 	int     OfflineLogin;   // 是否掉线重连
@@ -173,6 +175,8 @@ public:
 	void Run();
 	// 搞进
 	void Inject(DWORD pid, const wchar_t* dll_file, const wchar_t* short_name);
+	// 自动交易
+	bool AutoTransaction();
 	// 自动登号
 	bool AutoLogin(const char* remark);
 	// 登录
@@ -196,7 +200,7 @@ public:
 	// 退出
 	void AutoLogout();
 	// 退出
-	void LogOut(Account* account);
+	void LogOut(Account* account, bool leave_team=true);
 	// 输入帐号密码登录
 	void Input(Account* p);
 	// 全部登完
@@ -306,6 +310,8 @@ public:
 	void UpdateFBTimeLongText(int time_long, int add_time_long);
 	// 更新掉线复活次数文本
 	void UpdateOffLineAllText(int offline, int reborn);
+	// 重新启动程序和全部下号
+	void RestartApp();
 
 	// 写入日记
 	void WriteLog(const char* log);
@@ -339,7 +345,7 @@ public:
 	// 注入DLL
 	int InstallDll();
 	// 自动登号
-	int AutoPlay(int index, bool stop);
+	int AutoPlay(int index, bool stop, bool trans=false);
 	// 添加帐号
 	void AddAccount(Account* account);
 	// 转移卡号本机
@@ -404,6 +410,7 @@ public:
 		int  TimeOut;        // 游戏超时时间
 		int  FBTimeOut;      // 副本超时时间[卡住检测]
 		int  FBTimeOutErvry; // 副本超时时间[随时检测]
+		int  TransactionNum; // 交易次数
 
 		int  ReConnect;      // 是否断线重连
 		int  AutoLoginNext;  // 是否自动登录帐号
@@ -428,6 +435,11 @@ public:
 		int  AutoLogin_SM;   // 定时登录[开始分钟]
 		int  AutoLogin_EH;   // 定时登录[结束小时]
 		int  AutoLogin_EM;   // 定时登录[结束分钟]
+
+		int  SwitchLogin_SH; // 定时换号[开始小时]
+		int  SwitchLogin_SM; // 定时换号[开始分钟]
+		int  SwitchLogin_EH; // 定时换号[结束小时]
+		int  SwitchLogin_EM; // 定时换号[结束分钟]
 
 		int  NoAutoSelect;   // 不自动选择游戏区
 		int  TalkOpen;       // 是否自动喊话    
@@ -497,6 +509,8 @@ public:
 
 	// 大号
 	Account* m_pBig = nullptr;
+	// 交易
+	Account* m_pTransaction = nullptr;
 	// 队长的
 	Account* m_pLeader = nullptr;
 
@@ -521,6 +535,8 @@ public:
 	bool m_bAutoOffline = false;
 	// 是否自动上线了
 	bool m_bAutoOnline = false;
+	// 正在重启
+	bool m_bRestarting = false;
 
 	char m_chTitle[32];
 	char m_chPath[255];

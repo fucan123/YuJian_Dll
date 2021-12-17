@@ -37,11 +37,12 @@ bool Item::OpenBag()
 }
 
 // 关闭背包
-void Item::CloseBag()
+void Item::CloseBag(HWND hWnd)
 {
 	DbgPrint("关闭背包\n");
 	LOG2(L"关闭背包", "orange b");
-	m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, BUTTON_ID_CLOSEBAG);
+	hWnd = hWnd ? hWnd : m_pGame->m_pGameProc->m_pAccount->Wnd.Pic;
+	m_pGame->m_pButton->Click(hWnd, BUTTON_ID_CLOSEBAG);
 }
 
 // 整理背包
@@ -69,10 +70,10 @@ void Item::OpenStorage()
 	DbgPrint("打开仓库\n");
 	LOG2(L"打开仓库", "c0");
 	
-	m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, BUTTON_ID_VIP);
+	m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, BUTTON_ID_VIP, "VIP");
 	for (int i = 0; i < 5; i++) {
 		Sleep(800);
-		if (m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, BUTTON_ID_CHECKIN)) {
+		if (m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, BUTTON_ID_CHECKIN, "VIP界面---使用仓库")) {
 			Sleep(800);
 			return;
 		}
@@ -91,11 +92,12 @@ bool Item::SlideStorge(int page)
 }
 
 // 关闭仓库
-void Item::CloseStorage()
+void Item::CloseStorage(HWND hWnd)
 {
 	DbgPrint("关闭仓库\n");
 	LOG2(L"关闭仓库", "orange b");
-	m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, BUTTON_ID_CLOSECKIN);
+	hWnd = hWnd ? hWnd : m_pGame->m_pGameProc->m_pAccount->Wnd.Pic;
+	m_pGame->m_pButton->Click(hWnd, BUTTON_ID_CLOSECKIN);
 }
 
 // 加满血
@@ -930,7 +932,7 @@ void Item::CheckInOne(const char* name)
 }
 
 // 取出仓库
-int Item::CheckOut(ConfItemInfo* items, DWORD length)
+int Item::CheckOut(ConfItemInfo* items, DWORD length, bool save_money)
 {
 	int count = 0;
 	DbgPrint("取物\n");
@@ -957,7 +959,7 @@ int Item::CheckOut(ConfItemInfo* items, DWORD length)
 			PrintStorageImg(true); // 截取仓库图片
 			int num = m_pGame->m_pPrintScreen->ComparePixel(items[iti].Name, cp, sizeof(cp) / sizeof(ComPoint));
 			count += num;
-			//DbgPrint("%d.取物.仓库物品数量:%d\n", i + 1, num);
+		    ::printf("%d.取物.仓库 %s 物品数量:%d\n", i + 1, items[iti].Name, num);
 			if (num > 0) {
 				for (int j = 0; j < num; j++) {
 					if (j == 0) {
@@ -1032,20 +1034,20 @@ int Item::CheckOut(ConfItemInfo* items, DWORD length)
 
 	Sleep(200);
 
-#if 1
-	LOG2(L"存钱.", "orange");
-	m_pGame->m_pButton->Click(game, BUTTON_ID_SAVE_MNY, "取");
-	Sleep(800);
-	m_pGame->m_pButton->ClickPic(game, pic, MyRand(1216, 1286), MyRand(300, 303), 300);
-	char money[] = {'5', '0', '0', '0', '0', '0', '0', '0', 0};
-	for (int i = 0; money[i]; i++) {
-		m_pGame->m_pButton->Key(money[i]);
-		Sleep(260);
+	if (save_money) {
+		LOG2(L"存钱.", "orange");
+		m_pGame->m_pButton->Click(game, BUTTON_ID_SAVE_MNY, "取");
+		Sleep(800);
+		m_pGame->m_pButton->ClickPic(game, pic, MyRand(1216, 1286), MyRand(300, 303), 300);
+		char money[] = { '5', '0', '0', '0', '0', '0', '0', '0', 0 };
+		for (int i = 0; money[i]; i++) {
+			m_pGame->m_pButton->Key(money[i]);
+			Sleep(260);
+		}
+		m_pGame->m_pButton->Click(game, BUTTON_ID_CUNQIAN, "存");
+		Sleep(300);
+		LOG2(L"存钱完成.", "orange");
 	}
-	m_pGame->m_pButton->Click(game, BUTTON_ID_CUNQIAN, "存");
-	Sleep(300);
-	LOG2(L"存钱完成.", "orange");
-#endif
 
 	CloseStorage();
 	Sleep(300);
@@ -1140,6 +1142,62 @@ int Item::CheckOutOne(const char * name, bool open, bool close)
 
 	DbgPrint("取物完成.\n");
 	LOG2(L"取物完成.", "c0");
+	return count;
+}
+
+// 交易
+int Item::TransactionItem()
+{
+	DbgPrint("交易\n");
+	LOG2(L"交易", "c0");
+	DWORD _tm = GetTickCount();
+
+	Sleep(1000);
+
+	int count = 0;
+	for (int i = 0; i <= 5; i++) {
+		if (m_pGame->m_pGameProc->m_bPause)
+			break;
+
+		if (SlideBag(i)) // 滑动背包
+			Sleep(1000);
+
+		ITEM_TYPE bag_items[40];
+		ConfItemInfo* items = m_pGame->m_pGameConf->m_stTransaction.Transcation;
+		int length = m_pGame->m_pGameConf->m_stTransaction.Length;
+		int idx = 0;
+		for (idx = 0; idx < length; idx++) {
+			if (count >= 60)
+				break;
+
+			ReadBagItem(bag_items, sizeof(bag_items));
+			for (int n = 0; n < sizeof(bag_items) / sizeof(ITEM_TYPE); n++) {
+				if (bag_items[n] && bag_items[n] == items[idx].Type) {
+					int click_x, click_y;
+					GetBagClickPos(n, click_x, click_y);
+
+					LOGVARN2(64, "c0", L"交易:%hs %d,%d(%d)", items[idx].Name, click_x, click_y, n);
+					m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
+						BUTTON_ID_BAG_ITEM, "MPC物品栏", click_x, click_y, 0xff, false);
+					Sleep(600);
+
+					idx = 0;
+					count++;
+					break;
+				}
+			}
+		}
+
+		if (!BagNeedPageDown())
+			break;
+	}
+
+	Sleep(300);
+
+	_tm = GetTickCount() - _tm;
+	DbgPrint("交易用时:%.2f秒, %d毫秒\n", (float)_tm / 1000.0f, _tm);
+	LOGVARN2(64, "c0", L"交易用时:%d秒, %d毫秒", _tm / 1000, _tm);
+
 	return count;
 }
 

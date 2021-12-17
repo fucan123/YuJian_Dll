@@ -38,6 +38,7 @@ bool GameConf::ReadConf(const char* path)
 	//printf("m_nHideFlag:%08X\n", m_pGame->m_nHideFlag);
 
 	bool pet = false, pickup = false, use = false, drop = false, checkin = false, sell = false, trump = false;
+	bool trans = false;
 	int length = 0;
 	char data[128];
 	while ((length = file.GetLine(data, 128)) > -1) {
@@ -84,6 +85,10 @@ bool GameConf::ReadConf(const char* path)
 		    checkin = true;
 			continue;
 		}
+		if (strstr(data, "交易物品")) {
+			trans = true;
+			continue;
+		}
 		if (strstr(data, "合法宝") || strstr(data, "合成法宝")) {
 			trump = true;
 			continue;
@@ -112,6 +117,10 @@ bool GameConf::ReadConf(const char* path)
 		}
 		if (checkin) {
 			ReadCheckIn(data);
+			continue;
+		}
+		if (trans) {
+			ReadTransaction(data);
 			continue;
 		}
 		if (trump) {
@@ -210,6 +219,19 @@ void GameConf::ReadCheckIn(const char* data)
 	m_stCheckIn.Length++;
 
 	//printf("%d.自动存入物品:%s %08X\n", m_stCheckIn.Length, data, type);
+}
+
+// 读取交易物品
+void GameConf::ReadTransaction(const char* data)
+{
+	if (m_stTransaction.Length >= MAX_CONF_ITEMS)
+		return;
+
+	DWORD length = m_stTransaction.Length;
+	int type = TransFormItemType(data);
+	strcpy(m_stTransaction.Transcation[length].Name, data);
+	m_stTransaction.Transcation[length].Type = type;
+	m_stTransaction.Length++;
 }
 
 // 读取合法宝

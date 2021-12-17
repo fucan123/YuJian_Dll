@@ -109,7 +109,7 @@ int GameData::WatchGame(bool first)
 				ReadProcessMemory(m_hGameProcess, (PVOID)(h3drole + ADDR_ACCOUNT_NAME), user, sizeof(user), &readlen);
 				ReadProcessMemory(m_hGameProcess, (PVOID)(h3drole + ADDR_ROLE_NAME), role, sizeof(role), &readlen);
 				ReadProcessMemory(m_hGameProcess, (PVOID)(h3drole + ADDR_COOR_Y_OFFSET), coor, sizeof(coor), &readlen);
-				::GetWindowTextA(roleWnd, role, sizeof(role));
+				//::GetWindowTextA(roleWnd, role, sizeof(role));
 				
 				LOGVARP2(log, "c0", L"\n帐号:%hs 角色:%hs 坐标:%d,%d %08X", user, role, coor[1], coor[0], pids[i]);
 
@@ -140,36 +140,52 @@ int GameData::WatchGame(bool first)
 					account->Wnd.PosX = m_pGame->m_pButton->FindButtonWnd(account->Wnd.Game, STATIC_ID_POS_X);
 					account->Wnd.PosY = m_pGame->m_pButton->FindButtonWnd(account->Wnd.Game, STATIC_ID_POS_Y);
 					
-					if (!m_DataAddr.Bag) {
-						if (first) {
-							::SetForegroundWindow(account->Wnd.Game);
+					do {
+						if (m_DataAddr.Bag) {
+							bool b = true;
+							if (account->IsBig && !m_DataAddr.Storage) {
+								b = false;
+							}
+							if (b)
+								break;
 						}
-						
-						m_pGame->m_pItem->OpenBag();
-						Sleep(1000);
-						m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_BAG_ITEM, "MPC物品栏", 80, 10);
-						Sleep(1000);
-						m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_BAG_ITEM, "MPC物品栏", 80, 10);
-						Sleep(1000);
-						ReadGameMemory(0x01);
-						m_pGame->m_pItem->CloseBag();
-					}
-					account->Addr.Bag = m_DataAddr.Bag;
-					
-					if (account->IsBig) {
-						if (!m_DataAddr.Storage) {
-							m_pGame->m_pItem->OpenStorage();
+
+						if (!m_DataAddr.Bag) {
+							if (first) {
+								::SetForegroundWindow(account->Wnd.Game);
+							}
+
+							m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "x");
+							Sleep(500);
+
+							m_pGame->m_pItem->OpenBag();
 							Sleep(1000);
-							m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_CKIN_ITEM, "存储物品栏", 10, 10);
+							m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_BAG_ITEM, "MPC物品栏", 80, 10);
 							Sleep(1000);
-							m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_CKIN_ITEM, "存储物品栏", 10, 10);
+							m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_BAG_ITEM, "MPC物品栏", 80, 10);
 							Sleep(1000);
 							ReadGameMemory(0x01);
-							m_pGame->m_pItem->CloseStorage();
+							m_pGame->m_pItem->CloseBag();
 						}
-						account->Addr.Storage = m_DataAddr.Storage;
-					}
+						account->Addr.Bag = m_DataAddr.Bag;
 
+						if (account->IsBig) {
+							if (!m_DataAddr.Storage) {
+								m_pGame->m_pItem->OpenStorage();
+								Sleep(1000);
+								m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_CKIN_ITEM, "存储物品栏", 10, 10);
+								Sleep(1000);
+								m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_CKIN_ITEM, "存储物品栏", 10, 10);
+								Sleep(1000);
+								ReadGameMemory(0x01);
+								m_pGame->m_pItem->CloseStorage();
+							}
+							account->Addr.Storage = m_DataAddr.Storage;
+						}
+					} while (false);
+					
+
+					account->IsCanTrans = 1;
 					m_pGame->SetStatus(account, ACCSTA_ONLINE, true);
 					count++;
 				}

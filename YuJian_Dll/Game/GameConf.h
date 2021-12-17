@@ -25,6 +25,8 @@ private:
 	void ReadSell(const char* data);
 	// 读取存入物品
 	void ReadCheckIn(const char* data);
+	// 读取交易物品
+	void ReadTransaction(const char* data);
 	// 读取合法宝
 	void ReadTrump(const char* data);
 	// 读取其它设置
@@ -70,6 +72,12 @@ public:
 		ConfItemInfo CheckIns[MAX_CONF_ITEMS];
 		DWORD        Length;
 	} m_stCheckIn;
+
+	// 交易物品列表
+	struct {
+		ConfItemInfo Transcation[MAX_CONF_ITEMS];
+		DWORD        Length;
+	} m_stTransaction;
 
 	// 合成法宝列表
 	struct {

@@ -139,7 +139,7 @@ DLLEXPORT void WINAPI EntryIn(HWND hWnd, const char* conf_path)
 	p->SelectFBRecord = Game_SelectFBRecord;
 	p->VerifyCard = Game_VerifyCard;
 
-	DbgPrint("Game_Init\n");
+	::printf("Game_Init\n");
 	game.Init(hWnd, conf_path);
 	//::MessageBox(NULL, "OK", "bbb", MB_OK);
 
