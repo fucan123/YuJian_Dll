@@ -1,6 +1,7 @@
 #pragma once
 #include <Windows.h>
 
+struct _account_;
 class Game;
 class Talk
 {
@@ -13,6 +14,8 @@ public:
 	bool IsNeedCheckNPC();
 	// 选择NPC
 	void SelectNPC(int no);
+	// 点击NPC
+	void ClickNPC(_account_* account, int mv_x, int mv_y, int clk_x, int clk_y, int clk_x2=0, int clk_y2=0);
 	// NPC
 	DWORD NPC(const char* name=nullptr);
 	// NPC对话选择项

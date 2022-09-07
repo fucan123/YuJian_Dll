@@ -5,13 +5,13 @@
 
 #define IS_READ_MEM         0x0000001     // 是否开启MEM模式
 
-#define ADDR_ACCOUNT_NAME   0x144E640     // 登录帐号名称
-#define ADDR_ROLE_NAME      0x148B448     // 游戏角色名称 
-#define ADDR_SERVER_NAME    0x1688888     // 游戏区服名称
-#define ADDR_COOR_X_OFFSET  0x14D658C     // X坐标地址在模块里面的偏移[MOD_3drole]
-#define ADDR_COOR_Y_OFFSET  0x14D6588     // Y坐标地址在模块里面的偏移[MOD_3drole]
-#define ADDR_LIFE_OFFSET    0x148B378     // 血量地址在模块里面的偏移[MOD_3drole]
-#define ADDR_LIFEMAX_OFFSET 0x148B37C     // 血量上限地址在模块里面的偏移[MOD_3drole]
+#define ADDR_ACCOUNT_NAME   0x1DFC0A0     // 登录帐号名称
+#define ADDR_ROLE_NAME      0x1E39760     // 游戏角色名称 
+#define ADDR_SERVER_NAME    0x1DCC668     // 游戏区服名称
+#define ADDR_COOR_X_OFFSET  0x1E7E274     // X坐标地址在模块里面的偏移[MOD_3drole]
+#define ADDR_COOR_Y_OFFSET  0x1E7E270     // Y坐标地址在模块里面的偏移[MOD_3drole]
+#define ADDR_LIFE_OFFSET    0x1E39688     // 血量地址在模块里面的偏移[MOD_3drole]
+#define ADDR_LIFEMAX_OFFSET 0x1E39690     // 血量上限地址在模块里面的偏移[MOD_3drole]
 
 #define SCREEN_X 1440 // 屏幕的宽度
 #define SCREEN_Y 900  // 屏幕的高度

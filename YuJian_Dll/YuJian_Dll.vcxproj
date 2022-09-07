@@ -163,6 +163,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Asm.h" />
+    <ClInclude Include="Game\BaiTan.h" />
     <ClInclude Include="Game\Button.h" />
     <ClInclude Include="Game\DownFile.h" />
     <ClInclude Include="Game\Driver.h" />
@@ -189,6 +190,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="Game\BaiTan.cpp" />
     <ClCompile Include="Game\Button.cpp" />
     <ClCompile Include="Game\DownFile.cpp" />
     <ClCompile Include="Game\Driver.cpp" />

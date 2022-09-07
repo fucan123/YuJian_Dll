@@ -10,7 +10,7 @@ public:
 	Item(Game* p);
 
 	// 打开背包
-	bool OpenBag();
+	bool OpenBag(HWND hWndGame=0);
 	// 关闭背包
 	void CloseBag(HWND hWnd=0);
 	// 整理背包
@@ -44,7 +44,7 @@ public:
 	// 背包是否需要翻页
 	bool BagNeedPageDown();
 	// 获取背包物品
-	void ReadBagItem(ITEM_TYPE items[], int length);
+	void ReadBagItem(ITEM_TYPE items[], int length, _account_* account=nullptr);
 	// 仓库是否需要翻页
 	bool StorageNeedPageDown();
 	// 获取仓库物品

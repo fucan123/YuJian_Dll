@@ -1,4 +1,5 @@
 #include "Game.h"
+#include "GameConf.h"
 #include "GameData.h"
 #include "Emulator.h"
 #include "Move.h"
@@ -140,54 +141,48 @@ int GameData::WatchGame(bool first)
 					account->Wnd.PosX = m_pGame->m_pButton->FindButtonWnd(account->Wnd.Game, STATIC_ID_POS_X);
 					account->Wnd.PosY = m_pGame->m_pButton->FindButtonWnd(account->Wnd.Game, STATIC_ID_POS_Y);
 					
-					do {
-						if (m_DataAddr.Bag) {
-							bool b = true;
-							if (account->IsBig && !m_DataAddr.Storage) {
-								b = false;
-							}
-							if (b)
-								break;
-						}
+					if (m_pGame->m_pGameConf->m_stFGZSer.Length == 0) { // 没有配置飞鸽子区服
+						do {
+							if (!m_DataAddr.Bag) {
+								if (first) {
+									::SetForegroundWindow(account->Wnd.Game);
+								}
 
-						if (!m_DataAddr.Bag) {
-							if (first) {
-								::SetForegroundWindow(account->Wnd.Game);
-							}
+								m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "x");
+								Sleep(500);
 
-							m_pGame->m_pButton->Click(account->Wnd.Game, BUTTON_ID_CLOSEMENU, "x");
-							Sleep(500);
-
-							m_pGame->m_pItem->OpenBag();
-							Sleep(1000);
-							m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_BAG_ITEM, "MPC物品栏", 80, 10);
-							Sleep(1000);
-							m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_BAG_ITEM, "MPC物品栏", 80, 10);
-							Sleep(1000);
-							ReadGameMemory(0x01);
-							m_pGame->m_pItem->CloseBag();
-						}
-						account->Addr.Bag = m_DataAddr.Bag;
-
-						if (account->IsBig) {
-							if (!m_DataAddr.Storage) {
-								m_pGame->m_pItem->OpenStorage();
+								m_pGame->m_pItem->OpenBag();
 								Sleep(1000);
-								m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_CKIN_ITEM, "存储物品栏", 10, 10);
+								m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_BAG_ITEM, "MPC物品栏", 80, 10);
 								Sleep(1000);
-								m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_CKIN_ITEM, "存储物品栏", 10, 10);
+								m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_BAG_ITEM, "MPC物品栏", 80, 10);
 								Sleep(1000);
 								ReadGameMemory(0x01);
-								m_pGame->m_pItem->CloseStorage();
+								m_pGame->m_pItem->CloseBag();
 							}
-							account->Addr.Storage = m_DataAddr.Storage;
-						}
-					} while (false);
-					
+							account->Addr.Bag = m_DataAddr.Bag;
 
+							if (account->IsBig) {
+								if (!m_DataAddr.Storage) {
+									m_pGame->m_pItem->OpenStorage();
+									Sleep(1000);
+									m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_CKIN_ITEM, "存储物品栏", 10, 10);
+									Sleep(1000);
+									m_pGame->m_pButton->Click(account->Wnd.Pic, BUTTON_ID_CKIN_ITEM, "存储物品栏", 10, 10);
+									Sleep(1000);
+									ReadGameMemory(0x01);
+									m_pGame->m_pItem->CloseStorage();
+								}
+								account->Addr.Storage = m_DataAddr.Storage;
+							}
+						} while (false);
+					}
+					
 					account->IsCanTrans = 1;
 					m_pGame->SetStatus(account, ACCSTA_ONLINE, true);
 					count++;
+
+					::printf("WatchGame Addr.Bag:%08X\n", account->Addr.Bag);
 				}
 				else {
 					CloseHandle(m_hGameProcess);
@@ -315,7 +310,7 @@ bool GameData::IsInArea(int x, int y, int allow, _account_* account)
 	int cx = (int)pos_x - x;
 	int cy = (int)pos_y - y;
 
-	printf("IsInArea:%d,%d %d,%d\n", pos_x, pos_y, cx, cy);
+	// ::printf("IsInArea:%d,%d %d,%d %d,%d\n", pos_x, pos_y, x, y, cx, cy);
 
 	return abs(cx) <= allow && abs(cy) <= allow;
 }
@@ -416,7 +411,7 @@ bool GameData::FindLifeAddr()
 	};
 	DWORD address = 0;
 	if (SearchCode(codes, sizeof(codes) / sizeof(DWORD), &address, 1, 1)) {
-		m_DataAddr.Life = address + 0x18;
+		m_DataAddr.Life = address + 0x14;
 		DbgPrint("(%s)血量地址:%08X\n", m_pAccountTmp->Name, m_DataAddr.Life);
 		LOGVARN2(64, "blue", L"(%hs)血量地址:%08X", m_pAccountTmp->Name, m_DataAddr.Life);
 	}
@@ -433,7 +428,7 @@ bool GameData::FindBagAddr()
 	};
 	DWORD address = 0;
 	if (SearchCode(codes, sizeof(codes) / sizeof(DWORD), &address)) {
-		m_DataAddr.Bag = address + 0x40;
+		m_DataAddr.Bag = address + 0xC0;
 		DbgPrint("(%s)背包物品地址:%08X\n", m_pAccountTmp->Name, m_DataAddr.Bag);
 		LOGVARN2(64, "blue", L"(%hs)背包物品地址:%08X", m_pAccountTmp->Name, m_DataAddr.Bag);
 	}
@@ -451,7 +446,7 @@ bool GameData::FindStorageAddr()
 	};
 	DWORD address = 0;
 	if (SearchCode(codes, sizeof(codes) / sizeof(DWORD), &address)) {
-		m_DataAddr.Storage = address + 0x40;
+		m_DataAddr.Storage = address + 0xC0;
 
 		DbgPrint("(%s)仓库物品地址:%08X\n", m_pAccountTmp->Name, m_DataAddr.Storage);
 		LOGVARN2(64, "blue", L"(%hs)仓库物品地址:%08X", m_pAccountTmp->Name, m_DataAddr.Storage);

@@ -67,7 +67,7 @@ HTTP_STATUS HttpClient::Request(const WCHAR* host, const WCHAR* path, std::strin
 		TCHAR szErr[1024];
 		CString strInfo;
 		pEx->GetErrorMessage(szErr, 1024);
-		//MessageBox(NULL, szErr, L"oo", MB_OK);
+		::MessageBox(NULL, szErr, L"oo", MB_OK);
 		printf("错误:服务器未响应！！！\n"); // 显示异常信息 
 		status = 0;
 	}

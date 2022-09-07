@@ -101,12 +101,12 @@ int Move::Run(DWORD x, DWORD y, _account_* account, bool check_time)
 		}
 
 		// 右边任务提示
-		else if (click_x > 1220 && click_x < 1440 && click_y > 270 && click_y < 370) {
+		if (click_x > 1220 && click_x < 1440 && click_y > 270 && click_y < 370) {
 			click_x = 1220;
 		}
 
 		// 下面活动提示
-		else if (click_x > 530 && click_x < 950 && click_y > 590 && click_y < 900) {
+		if (click_x > 530 && click_x < 950 && click_y > 590 && click_y < 900) {
 			click_y = 590;
 		}
 

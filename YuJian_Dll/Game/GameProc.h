@@ -79,14 +79,30 @@ public:
 	int AgreenMsg(const char* name, int icon_index, bool click = false, HWND hwnd = NULL);
 	// 等待提示框
 	void WaitGameMenu(_account_* account);
+	// 飞鸽子
+	void FeiGeZi(_account_* account);
+	// 关闭XXX
+	void CloseXXX(_account_* account);
+	// 进入无尽虚空之塔
+	void InXuKong(Account* account);
+	// 离开无尽虚空之塔
+	void LeaveXuKong(Account* account);
 	// 神殿去雷鸣大陆流程
 	void GoLeiMing(_account_* account);
 	// 去领取项链
 	void GoGetXiangLian(_account_* account);
+	// 去树心城
+	void GoTreeCity(_account_* account);
+	// 离开树心城
+	void LeaveTreeCity(_account_* account);
+	// 去遗忘神域商店
+	void GoShenYuShop(_account_* account);
+	// 从遗忘神域商店出来
+	void LeaveShenYu(_account_* account);
 	// 询问项链数量
 	_account_*  AskXiangLian();
 	// 去副本门口
-	bool GoFBDoor(_account_* account, int num=0);
+	bool GoFBDoor(_account_* account, int num=0, bool must_go=false);
 	// 开启副本
 	_account_* OpenFB(bool go_leiming=false);
 	// 所有出副本big=大号要出去否

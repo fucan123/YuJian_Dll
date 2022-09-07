@@ -594,14 +594,15 @@ int PrintScreen::GetGrayPiexlCount(int start_x, int end_x, bool print)
 		for (LONG x = start_x; x < end_x; x++) {
 			DWORD c = GetPixel(x, y);
 			if (print)
-				printf("%08X ", c);
+				::printf("%08X ", c);
 
 			int r = (c >> 16) & 0xff;
 			int g = (c >> 8) & 0xff;
 			int b = (c >> 0) & 0xff;
 
-			int cv = abs(r - g), cv2 = abs(r - b);
-			if ((cv <= 0x06) && (cv2 <= 0x06) && r > 0x30 && r < 0xff)
+			int cv = abs(r - g), cv2 = abs(r - b), cv3 = abs(g - b);
+			int v = 0x06;
+			if ((cv <= v) && (cv2 <= v) && (cv3 <= v) && r > 0x30 && r < 0xff)
 				count++;
 		}
 		if (print)

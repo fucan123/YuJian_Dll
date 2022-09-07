@@ -15,17 +15,20 @@ Item::Item(Game* p)
 }
 
 // 打开背包
-bool Item::OpenBag()
+bool Item::OpenBag(HWND hWndGame)
 {
 	DbgPrint("打开背包\n");
 	LOG2(L"打开背包", "c0");
-	if (m_pGame->m_pButton->CheckButton(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, BUTTON_ID_BAG_ITEM, "MPC物品栏"))
+	if (!hWndGame)
+		hWndGame = m_pGame->m_pGameProc->m_pAccount->Wnd.Pic;
+
+	if (m_pGame->m_pButton->CheckButton(hWndGame, BUTTON_ID_BAG_ITEM, "MPC物品栏"))
 		return true;
 
-	m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, BUTTON_ID_BAG);
+	m_pGame->m_pButton->Click(hWndGame, BUTTON_ID_BAG);
 	for (int i = 0; i < 2000; i += 100) {
 		Sleep(100);
-		if (m_pGame->m_pButton->CheckButton(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic, 
+		if (m_pGame->m_pButton->CheckButton(hWndGame,
 			BUTTON_ID_BAG_ITEM, "MPC物品栏")) {
 			Sleep(800);
 			DbgPrint("背包已经打开\n");
@@ -210,10 +213,13 @@ bool Item::BagNeedPageDown()
 }
 
 // 获取背包物品
-void Item::ReadBagItem(ITEM_TYPE items[], int length)
+void Item::ReadBagItem(ITEM_TYPE items[], int length, _account_* account)
 {
-	m_pGame->m_pGameData->ReadMemory((PVOID)m_pGame->m_pGameProc->m_pAccount->Addr.Bag,
-		items, length, m_pGame->m_pGameProc->m_pAccount);
+	if (!account)
+		account = m_pGame->m_pGameProc->m_pAccount;
+
+	m_pGame->m_pGameData->ReadMemory((PVOID)account->Addr.Bag,
+		items, length, account);
 }
 
 // 仓库是否需要翻页
@@ -309,8 +315,10 @@ int Item::GetGroundItemPos(const char* name, int x, int y, int x2, int y2, int& 
 		x = 360;
 		y = 90;
 		x2 = 1098;
-		y2 = 730;
+		y2 = 600;
 	}
+	if (strcmp(name, "速效圣兽灵药") == 0)
+		y2 = 720;
 
 	wchar_t log[128];
 	//LOGVARP2(log, "orange b", L"捡东西数量:%d (%d,%d)-(%d,%d)", 0, x, y, x2, y2);
@@ -1167,7 +1175,7 @@ int Item::TransactionItem()
 		int length = m_pGame->m_pGameConf->m_stTransaction.Length;
 		int idx = 0;
 		for (idx = 0; idx < length; idx++) {
-			if (count >= 60)
+			if (count >= 80)
 				break;
 
 			ReadBagItem(bag_items, sizeof(bag_items));
@@ -1179,7 +1187,7 @@ int Item::TransactionItem()
 					LOGVARN2(64, "c0", L"交易:%hs %d,%d(%d)", items[idx].Name, click_x, click_y, n);
 					m_pGame->m_pButton->Click(m_pGame->m_pGameProc->m_pAccount->Wnd.Pic,
 						BUTTON_ID_BAG_ITEM, "MPC物品栏", click_x, click_y, 0xff, false);
-					Sleep(600);
+					Sleep(800);
 
 					idx = 0;
 					count++;
@@ -1238,8 +1246,10 @@ int Item::GetBagItemCount(const char* name, int* klyb, int* qiu)
 		ITEM_TYPE bag_items[40];
 		ReadBagItem(bag_items, sizeof(bag_items));
 		for (int n = 0; n < sizeof(bag_items) / sizeof(ITEM_TYPE); n++) {
-			if (bag_items[n] && bag_items[n] == type)
+			if (bag_items[n] && bag_items[n] == type) {
 				count++;
+			}
+				
 			if (bag_items[n] && bag_items[n] == type_yb)
 				yb_count++;
 			if (bag_items[n] && bag_items[n] == type_qiu)

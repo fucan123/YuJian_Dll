@@ -160,6 +160,7 @@ class Talk;
 class Pet;
 class PrintScreen;
 class MCButton;
+class BaiTan;
 
 class Game
 {
@@ -403,6 +404,7 @@ public:
 		char SerBig[32];     // 游戏大区
 		char SerSmall[32];   // 游戏小区
 		char ShopMap[32];    // 商店地图
+		char GeZiText[256];  // 鸽子内容
 		int  CloseMnq;       // 启动前是否关闭模拟器
 		int  OnlyLoginSmall; // 只会登录小号
 		int  InitTimeOut;    // 启动超时时间
@@ -411,6 +413,7 @@ public:
 		int  FBTimeOut;      // 副本超时时间[卡住检测]
 		int  FBTimeOutErvry; // 副本超时时间[随时检测]
 		int  TransactionNum; // 交易次数
+		int  XuKongSite;     // 无尽虚空塔位置
 
 		int  ReConnect;      // 是否断线重连
 		int  AutoLoginNext;  // 是否自动登录帐号
@@ -474,6 +477,8 @@ public:
 	PrintScreen* m_pPrintScreen;
 	// 按钮
 	MCButton * m_pButton;
+	// 摆摊
+	BaiTan* m_pBaiTan;
 	// 数据库
 	Sqlite*   m_pSqlite;
 

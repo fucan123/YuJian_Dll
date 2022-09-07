@@ -14,7 +14,7 @@ typedef unsigned long long qword;
 #define STEP_IS_CLICK(step) (step.OpCode==OP_CLICK)
 #define STEP_IS_SELECT(step) (step.OpCode==OP_SELECT)
 #define STEP_IS_MOUMOVE(step) (step.OpCode==OP_MOUMOVE)
-#define STEP_IS_WAIT(step) (step.OpCode==OP_KEY)
+#define STEP_IS_KEY(step) (step.OpCode==OP_KEY)
 #define STEP_IS_WAIT(step) (step.OpCode==OP_WAIT)
 
 #define USE_MY_LINK 1

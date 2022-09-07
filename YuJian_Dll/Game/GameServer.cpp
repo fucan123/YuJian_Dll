@@ -595,8 +595,8 @@ void GameServer::OnClose(SOCKET client, int index)
 {
 	wchar_t log[64];
 	Account* p = self->m_pGame->GetAccountBySocket(client);
-	printf("游戏关闭:%hs %d\n", p ? p->Name : nullptr, client);
-	LOGVARP2(log, "red", L"游戏关闭:%hs %d", p ? p->Name : nullptr, client);
+	printf("游戏关闭:%hs %lld\n", p ? p->Name : nullptr, client);
+	LOGVARP2(log, "red", L"游戏关闭:%hs %lld", p ? p->Name : nullptr, client);
 	if (!p)
 		p = self->m_pGame->GetReadyAccount();
 	if (p) {

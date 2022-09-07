@@ -8,6 +8,7 @@
 #include "Pet.h"
 #include "PrintScreen.h"
 #include "Button.h"
+#include "BaiTan.h"
 
 #include "Driver.h"
 
@@ -64,6 +65,7 @@ void Game::Init(HWND hWnd, const char* conf_path)
 	m_pTalk = new Talk(this);
 	m_pPet = new Pet(this);
 	m_pButton = new MCButton(this);
+	m_pBaiTan = new BaiTan(this);
 
 	Asm_Nd(GetCurrentThread(), GetNdSysCallIndex()); // 禁止反调试
 
@@ -168,7 +170,7 @@ void Game::Run()
 	//DbgPrint("!m_pGame->m_pHome->IsValid()!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 	while (!m_pGame->m_pHome->IsValid()) {
 		//DbgPrint("Run:未激活\n");
-		Sleep(3000);
+		Sleep(1000);
 	}
 
 	if (!m_bAutoOffline) {
@@ -223,6 +225,11 @@ void Game::Run()
 	//printf("!m_pEmulator->List2!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 	//m_pEmulator->List2();
 	int login_num = m_pGameData->WatchGame();
+	if (m_pGameConf->m_stBaiTan.Length > 0) {
+		m_pBaiTan->Start();
+		return;
+	}
+
 	if (!login_num) {
 		DbgPrint("没有登录任何游戏.\n");
 		LOG2(L"没有任何登录游戏.", "red");
@@ -255,6 +262,26 @@ void Game::Run()
 #endif	
 	}
 
+	if (m_pGameConf->m_stFGZSer.Length > 0) { // 飞鸽子
+		::printf("飞鸽子.\n");
+		while (true) {
+			m_pGameProc->FeiGeZi(m_pBig);
+
+			LogOut(m_pBig, false);
+			SetStatus(m_pBig, ACCSTA_INIT, true);
+			Sleep(1680);
+
+			if (++m_pGameConf->m_stFGZSer.Index >= m_pGameConf->m_stFGZSer.Length) {
+				LOG2(L"已飞完", "red");
+				return;
+			}
+
+			OpenGame(m_pBig->Index);
+			m_pGameData->WatchGame();
+			Sleep(1000);
+		}
+	}
+
 	m_pGameData->m_pAccountBig = m_pBig; // 大号
 	m_pBig->IsLogin = 1;
 #if 0
@@ -267,24 +294,12 @@ void Game::Run()
 #endif
 
 #if 0
+	::printf("测试.\n");
 	m_pGameProc->SwitchGameAccount(m_pBig);
-	m_pItem->CheckOut(m_pGameConf->m_stCheckIn.CheckIns, m_pGameConf->m_stCheckIn.Length);
-	return;
-
-	m_pGameProc->Transaction(m_pBig, m_AccountList[1]);
-	return;
-
-	bool r = m_pGame->m_pButton->Click(m_pBig->Wnd.Game, 0xFDE, "同意校验框", 3, 3); // 异地需要打勾
-	Sleep(1000);
-
-	HWND hConTraBtn = m_pGame->m_pButton->FindButtonWnd(m_pBig->Wnd.Game, 0x9B1, "继续交易");
-
-	RECT rect;
-	::GetWindowRect(hConTraBtn, &rect);
-	::SetCursorPos(rect.left + 3, rect.top + 3);
-	Sleep(100);
-	bool r2 = m_pGame->m_pButton->Click(m_pBig->Wnd.Game, 0x9B1, "继续交易", 3, 3); // 继续交易
-	::printf("r:%d %d\n", r, r2);
+	DWORD no[] = { 1, 2, 3 };
+	m_pPet->PetOut(no, 3);
+	m_pPet->PetFuck(-1);
+	m_pPet->Revive();
 	return;
 #endif
 
@@ -316,16 +331,13 @@ void Game::Run()
 	m_pGame->m_pGameProc->Wait(5 * 1000);
 #endif
 
-	//m_pGame->m_pItem->DropItem();
-	//m_pGame->m_pItem->CheckIn();
-	//while (true) Sleep(168);
 	m_pGameProc->m_bPause = false;
 	if (m_pGameProc->IsInFB(m_pBig)) {
 		//m_pGameProc->OutFB(m_pBig);
 		m_pGameProc->Run(m_pBig);
 	}
 	else {
-		m_pGameProc->GoFBDoor(m_pBig);
+		// m_pGameProc->GoFBDoor(m_pBig);
 
 		while (true) {
 			Account* open = m_pGameProc->OpenFB();
@@ -502,7 +514,20 @@ void Game::Login(Account* p, int index)
 					}
 				}
 
+#if 0
 				if (p->Wnd.PosX && m_pGameData->FormatCoor(p->Wnd.PosX)) {
+#else
+				DWORD64 h3drole = (DWORD64)EnumModuleBaseAddr(p->GamePid, L"3drole.dll");
+				HANDLE hProcess = ::OpenProcess(PROCESS_ALL_ACCESS, FALSE, p->GamePid);
+				DWORD coor[2] = { 0, 0 };
+				SIZE_T readlen;
+				ReadProcessMemory(hProcess, (PVOID)(h3drole + ADDR_COOR_Y_OFFSET), coor, sizeof(coor), &readlen);
+
+				if (coor[0] && coor[1]) {
+					p->Process = hProcess;
+					p->Addr.CoorX = h3drole + ADDR_COOR_X_OFFSET;
+					p->Addr.CoorY = h3drole + ADDR_COOR_Y_OFFSET;
+#endif
 					int tl = GetTickCount64() - s + 1500;
 					DbgPrint("%hs Say 已进入, 用时%d秒\n", p->Name, tl / 1000);
 					LOGVARP2(log, "green", L"%hs Say 已进入, 用时%d秒", p->Name, tl/1000);
@@ -513,32 +538,55 @@ void Game::Login(Account* p, int index)
 
 					p->Wnd.Pic = ::FindWindowEx(p->Wnd.Game, NULL, NULL, NULL);
 					m_pGameProc->WaitGameMenu(p);
+					Sleep(1000);
 					m_pButton->Click(p->Wnd.Game, BUTTON_ID_CLOSEMENU, "关闭");
 
 					if (m_Setting.OnlyLoginSmall) { // 只会登录小号
 						break;
 					}
 
-					if (p->IsBig) {
-						m_pGameProc->GoLeiMing(p); // 去雷鸣
-
-						int s = 0;
-						for (; s > 0; s--) {
-							DbgPrint("%d 秒后去副本门口\n", s);
-							LOGVARP2(log, "c6", L"%d 秒后去副本门口", s);
+					if (m_pGameConf->m_stFGZSer.Length == 0) { // 不是飞鸽子
+						if (p->IsBig) {
+							m_pGameProc->GoLeiMing(p); // 去雷鸣
 							Sleep(1000);
+							m_pGameProc->CloseXXX(p);
+
+							m_pGameProc->SwitchGameAccount(p);
+							// 宠物出征合体
+							m_pPet->PetOut(m_pGameConf->m_stPetOut.No, m_pGameConf->m_stPetOut.Length);
+							m_pPet->PetFuck(-1);
+							Sleep(1000);
+
+							m_pGameProc->InXuKong(p);
+							Sleep(8000);
+							m_pGameProc->LeaveXuKong(p);
+							Sleep(1000);
+
+							int s = 0;
+							for (; s > 0; s--) {
+								DbgPrint("%d 秒后去副本门口\n", s);
+								LOGVARP2(log, "c6", L"%d 秒后去副本门口", s);
+								Sleep(1000);
+							}
+
+							m_pGameProc->GoFBDoor(p, 5); // 去门口
+
+							s = 0;
+							for (; s > 0; s--) {
+								DbgPrint("%d 秒后登录下一个\n", s);
+								LOGVARP2(log, "c6", L"%d 秒后登录下一个", s);
+								Sleep(1000);
+							}
 						}
-
-						m_pGameProc->GoFBDoor(p, 5); // 去门口
-
-						s = 0;
-						for (; s > 0; s--) {
-							DbgPrint("%d 秒后登录下一个\n", s);
-							LOGVARP2(log, "c6", L"%d 秒后登录下一个", s);
-							Sleep(1000);
+						else {
+							m_pGameProc->CloseXXX(p);
 						}
 					}
 					
+					
+					p->Process = NULL;
+					p->Addr.CoorX = 0;
+					p->Addr.CoorY = 0;
 					SetReady(p, 1);
 
 #if 0
@@ -682,8 +730,12 @@ void Game::Login(Account* p, int index)
 						::memset(m_pShareTeam->result,  0, sizeof(m_pShareTeam->result));
 					}
 #endif
+
+					CloseHandle(hProcess);
 					break;
 				}
+
+				CloseHandle(hProcess);
 
 				HWND hErrorWnd = ::FindWindow(NULL, L"Error");
 				if (!hErrorWnd)
@@ -784,9 +836,20 @@ void Game::SelectServer(HWND hWnd)
 void Game::GetSerBigClickPos(int& x, int& y)
 {
 	int vx = 200, vy = 33;
-	Explode arr("-", m_Setting.SerBig);
-	//printf("arr:%d-%d\n", arr.GetValue2Int(0), arr.GetValue2Int(1));
-	SET_VAR2(x, arr.GetValue2Int(0) * vx - vx + 125, y, arr.GetValue2Int(1) * vy - vy + 135);
+	if (m_pGameConf->m_stFGZSer.Length == 0) {
+		Explode arr("-", m_Setting.SerBig);
+		//printf("arr:%d-%d\n", arr.GetValue2Int(0), arr.GetValue2Int(1));
+		SET_VAR2(x, arr.GetValue2Int(0) * vx - vx + 125, y, arr.GetValue2Int(1) * vy - vy + 135);
+	}
+	else {
+		DWORD index = m_pGameConf->m_stFGZSer.Index;
+		Explode a(":", m_pGameConf->m_stFGZSer.Ser[index]);
+
+		Explode arr("-", a[0]);
+		//printf("arr:%d-%d\n", arr.GetValue2Int(0), arr.GetValue2Int(1));
+		SET_VAR2(x, arr.GetValue2Int(0) * vx - vx + 125, y, arr.GetValue2Int(1) * vy - vy + 135);
+	}
+	
 	//printf("x:%d y:%d\n", x, y);
 }
 
@@ -794,9 +857,19 @@ void Game::GetSerBigClickPos(int& x, int& y)
 void Game::GetSerSmallClickPos(int& x, int& y)
 {
 	int vy = 38;
-	int n = atoi(m_Setting.SerSmall);
-	//printf("n:%d\n", n);
-	SET_VAR2(x, 515, y, n * vy - vy + 125);
+	if (m_pGameConf->m_stFGZSer.Length == 0) {
+		int n = atoi(m_Setting.SerSmall);
+		//printf("n:%d\n", n);
+		SET_VAR2(x, 515, y, n * vy - vy + 125);
+	}
+	else {
+		DWORD index = m_pGameConf->m_stFGZSer.Index;
+		Explode a(":", m_pGameConf->m_stFGZSer.Ser[index]);
+
+		int n = atoi(a[1]);
+		//printf("n:%d\n", n);
+		SET_VAR2(x, 515, y, n * vy - vy + 125);
+	}
 	//printf("x:%d y:%d\n", x, y);
 }
 
@@ -946,8 +1019,8 @@ void Game::LogOut(Account* p, bool leave_team)
 	p->IsReadXL = 0;
 	p->IsCanTrans = 0;
 	p->GamePid = 0;
-	ZeroMemory(&p->Wnd, sizeof(p->Wnd));
-	ZeroMemory(&p->Addr, sizeof(p->Addr));
+	::ZeroMemory(&p->Wnd, sizeof(p->Wnd));
+	::ZeroMemory(&p->Addr, sizeof(p->Addr));
 	SetStatus(p, ACCSTA_COMPLETED, true);
 	DbgPrint("\n%hs Say 已完成\n", p->Name);
 	LOGVARP2(log, "red b", L"\n%hs Say 已完成 %d\n", p->Name, p->GamePid);
@@ -1483,7 +1556,7 @@ Account* Game::GetNextLoginAccount()
 				p = m_AccountList[i];
 				SetStatus(p, ACCSTA_INIT, true); // 更新帐号状态
 				p->IsReadXL = 0;
-				ZeroMemory(&p->Addr, sizeof(p->Addr));
+				::ZeroMemory(&p->Addr, sizeof(p->Addr));
 			}
 		}
 		p = GetAccountByStatus(ACCSTA_INIT | ACCSTA_OFFLINE);
@@ -2021,6 +2094,9 @@ void Game::ReadSetting(const char* data)
 	else if (strcmp(explode[0], "交易次数") == 0) {
 		m_Setting.TransactionNum = explode.GetValue2Int(1);
 	}
+	else if (strcmp(explode[0], "无尽虚空塔列表位置") == 0) {
+		m_Setting.XuKongSite = explode.GetValue2Int(1);
+	}
 	else if (strcmp(explode[0], "游戏路径") == 0) {
 		strcpy(m_Setting.GamePath, explode[1]);
 	}
@@ -2074,6 +2150,9 @@ void Game::ReadSetting(const char* data)
 	}
 	else if (strcmp(explode[0], "呆在副本门口") == 0) {
 		m_Setting.AtFBDoor = strcmp("是", explode[1]) == 0;
+	}
+	else if (strcmp(explode[0], "鸽子内容") == 0) {
+		strcpy(m_Setting.GeZiText, explode[1]);
 	}
 	else if (strcmp(explode[0], "定时关机") == 0) {
 		Explode t("-", explode[1]);

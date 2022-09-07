@@ -29,6 +29,10 @@ private:
 	void ReadTransaction(const char* data);
 	// 读取合法宝
 	void ReadTrump(const char* data);
+	// 读取摆摊
+	void ReadBaiTan(const char* data);
+	// 读取飞鸽子区服
+	void ReadFGZSer(const char* data);
 	// 读取其它设置
 	void ReadSetting(const char* data);
 public:
@@ -84,6 +88,19 @@ public:
 		ConfItemInfo Trumps[MAX_CONF_ITEMS];
 		DWORD        Length;
 	} m_stTrump;
+
+	// 合成法宝列表
+	struct {
+		ConfItemInfo BaiTans[MAX_CONF_ITEMS];
+		DWORD        Length;
+	} m_stBaiTan;
+
+	// 飞鸽子区服列表
+	struct {
+		char  Ser[500][16];
+		DWORD Index; 
+		DWORD Length;
+	} m_stFGZSer;
 
 	// 其他设置
 	struct {

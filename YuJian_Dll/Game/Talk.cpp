@@ -54,6 +54,25 @@ void Talk::SelectNPC(int no)
 	m_pGame->m_pGameProc->Click(x, y, x2, y2);
 }
 
+// 点击NPC
+void Talk::ClickNPC(_account_* account, int mv_x, int mv_y, int clk_x, int clk_y, int clk_x2, int clk_y2)
+{
+	_npc_coor_ npcCoor;
+	npcCoor.Point[0].MvX = mv_x;
+	npcCoor.Point[0].MvY = mv_y;
+	npcCoor.Point[0].ClkX = clk_x;
+	npcCoor.Point[0].ClkY = clk_y;
+	npcCoor.Point[0].ClkX2 = clk_x2;
+	npcCoor.Point[0].ClkY2 = clk_y2;
+	npcCoor.Length = 1;
+
+	DWORD pos_x, pos_y;
+	m_pGame->m_pGameData->ReadCoor(&pos_x, &pos_y, account);
+	int click_x, click_y;
+	m_pGame->m_pGameProc->GetNPCClickPos(&npcCoor, pos_x, pos_y, (DWORD&)click_x, (DWORD&)click_y);
+	m_pGame->m_pButton->ClickPic(account->Wnd.Game, account->Wnd.Pic, click_x, click_y);
+}
+
 // NPC
 DWORD Talk::NPC(const char* name)
 {
@@ -337,6 +356,27 @@ bool Talk::GetSelectClickPos(const char* name, int& click_x, int& click_y, HWND 
 	}
 	else if (strcmp(name, "活动.全部直接合成+1或+2.确定") == 0) {
 		y = 130, y2 = 133;
+	}
+	else if (strcmp(name, "前往树心城") == 0) {
+		y = 205, y2 = 207;
+	}
+	else if (strcmp(name, "我想买一些药草[树心城]") == 0) {
+		y = 160, y2 = 162;
+	}
+	else if (strcmp(name, "前往卡诺萨城") == 0) {
+		y = 157, y2 = 157;
+	}
+	else if (strcmp(name, "我要返回卡诺萨城") == 0) {
+		y = 126, y2 = 127;
+	}
+	else if (strcmp(name, "前往众神之巅") == 0) {
+		y = 126, y2 = 127;
+	}
+	else if (strcmp(name, "我要购买[遗忘神域]") == 0) {
+		y = 145, y2 = 145;
+	}
+	else if (strcmp(name, "确定返回") == 0) {
+		y = 126, y2 = 127;
 	}
 
 	click_x = MyRand(x, x2);
