@@ -302,6 +302,7 @@ DWORD WINAPI Listen(LPVOID param)
 // 激活
 DWORD WINAPI Verify(LPVOID param)
 {
+	Sleep(500);
 #if ISCMD
 	DbgPrint("正验证...\n");
 	if (game.m_pHome->Verify()) {

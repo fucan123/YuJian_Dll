@@ -6,6 +6,7 @@
 MCButton::MCButton(Game * p)
 {
 	m_pGame = p;
+	m_bLock = false;
 	HWND hWndSure, hWndSureParent;
 	return;
 
@@ -129,11 +130,16 @@ bool MCButton::ClickScreen(int x, int y, int flag, bool left_click)
 // 点击游戏画面
 bool MCButton::ClickPic(HWND game, HWND pic, int x, int y, DWORD sleep_ms, bool left_click)
 {
+	while (m_bLock);
+	m_bLock = true;
+
 	::SetForegroundWindow(game);
 	HWND top = GetForegroundWindow();
-	if (top != game && top != pic) // 窗口不在最前
+	if (top != game && top != pic) { // 窗口不在最前
+		m_bLock = false;
 		return false;
-
+	}
+	
 	MouseMovePos(pic, x, y);
 	Sleep(sleep_ms);
 
@@ -146,6 +152,7 @@ bool MCButton::ClickPic(HWND game, HWND pic, int x, int y, DWORD sleep_ms, bool 
 		mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
 	}
 	
+	m_bLock = false;
 	return true;
 }
 
@@ -451,6 +458,30 @@ HWND MCButton::FindGameWnd(DWORD pid)
 	::EnumChildWindows(NULL, EnumProc, (LPARAM)&pid_t);
 	if (pid != pid_t)
 		return (HWND)pid_t;
+
+	return NULL;
+}
+
+// 登录窗口
+HWND MCButton::FindLoginWnd(HWND hWndGame)
+{
+	HWND hWndChild = ::FindWindowEx(hWndGame, NULL, NULL, NULL);
+	HWND hWndChild2 = ::FindWindowEx(hWndChild, NULL, NULL, NULL);
+	if (!hWndChild2)
+		return NULL;
+
+	while (true) {
+		RECT rect;
+		::GetWindowRect(hWndChild2, &rect);
+		int width = rect.right - rect.left;
+		int height = rect.bottom - rect.top;
+		if (width == 1024 && height == 768)
+			return hWndChild2;
+
+		hWndChild2 = ::GetNextWindow(hWndChild2, GW_HWNDNEXT);
+		if (!hWndChild2)
+			return NULL;
+	}
 
 	return NULL;
 }

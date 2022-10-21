@@ -133,6 +133,8 @@ public:
 	bool FindButtonWnd(HWND hwnd_own, int button_id, HWND& hwnd, HWND& parent, const char* text = nullptr);
 	// 获得游戏窗口
 	HWND FindGameWnd(DWORD pid);
+	// 登录窗口
+	HWND FindLoginWnd(HWND hWndGame);
 	// 计算相对于游戏窗口位置
 	bool CalcRelGamePos(int& x, int& y, HWND game, int button_id, const char* text=nullptr);
 	// 枚举对话框窗口
@@ -145,4 +147,6 @@ public:
 	static BOOL CALLBACK EnumChildProc(HWND hWnd, LPARAM lParam);
 public:
 	Game* m_pGame;
+private:
+	bool  m_bLock = false;
 };

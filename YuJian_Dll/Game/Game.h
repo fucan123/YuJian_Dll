@@ -119,6 +119,7 @@ typedef struct _account_
 	struct {
 		HWND Game;       // 游戏窗口句柄
 		HWND Pic;        // 游戏画面窗口句柄
+		HWND Login;      // 登录游戏窗口
 		HWND Map;        // 地图名称"{1 0x00000000}阿拉玛的哭泣"
 		HWND Role;       // 角色名字"笑语嫣然"
 		HWND HP;         // 血量"HP:29696/29696神仙HP加成10%"
@@ -187,7 +188,7 @@ public:
 	// 进入到登录界面
 	void GoLoginUI(Account* p);
 	// 选择游戏服务
-	void SelectServer(HWND hWnd);
+	void SelectServer(Account* p);
 	// 获取大区点击坐标
 	void GetSerBigClickPos(int& x, int& y);
 	// 获取小区点击坐标

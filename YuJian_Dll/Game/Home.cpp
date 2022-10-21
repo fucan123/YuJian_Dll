@@ -139,6 +139,11 @@ bool Home::Recharge(const char* card, const char* remark)
 // 获取卡号
 void Home::GetCardNo(std::string& result)
 {
+	if (m_bFree) {
+		result = u8"无敌加免费";
+		return;
+	}
+
 	HttpClient http;
 	http.m_GB2312 = false;
 	http.AddParam("mac", m_MachineId);
@@ -148,6 +153,11 @@ void Home::GetCardNo(std::string& result)
 
 bool Home::Verify()
 {
+	if (m_bFree) {
+		SetExpire(999888);
+		return true;
+	}
+
 	char key[17], param[128], encryptParam[256], encryptParam2[512], tmStr[16] = "123";
 	memset(key, 0, sizeof(key));
 	memset(param, 0, sizeof(param));

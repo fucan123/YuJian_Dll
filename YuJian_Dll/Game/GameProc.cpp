@@ -303,7 +303,7 @@ void GameProc::InXuKong(Account* account)
 	}
 
 #if 1
-	int x = 930, y = 425;
+	int x = 930, y = 503;
 	switch (m_pGame->m_Setting.XuKongSite)
 	{
 	case 1:
@@ -2514,13 +2514,14 @@ bool GameProc::MoveNPC()
 		return true;
 
 	DWORD click_x, click_y;
-	if (CheckInNPCPos(p, click_x, click_y, false) == 1) {
+	if (0 && CheckInNPCPos(p, click_x, click_y, false) == 1) {
 		DbgPrint("已达到目的地\n");
 		LOG2(L"已达到目的地", "c0");
 		return true;
 	}
 		
 	GetMoveNPCPos(p, m_pStep->Extra[0], m_pStep->Extra[1]);
+	LOGVARN2(64, "green", L"移至: %d,%d", m_pStep->Extra[0], m_pStep->Extra[1]);
 	if (m_nNoConnectDriver >= 200) {
 		m_pStep->Extra[0] = MyRand(300, 900);
 		m_pStep->Extra[1] = MyRand(300, 900);

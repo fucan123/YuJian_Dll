@@ -220,6 +220,11 @@ void Game::Run()
 #endif
 	}
 
+#if 0
+	HWND hWnd = m_pButton->FindLoginWnd((HWND)0x002C0E62);
+	::printf("%08X\n", hWnd);
+#endif
+
 	m_bAutoOffline = false;
 	m_bAutoOnline = false;
 	//printf("!m_pEmulator->List2!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
@@ -477,15 +482,16 @@ void Game::Login(Account* p, int index)
 
 			p->Wnd.Game = hWnd;
 			p->Wnd.Pic = ::FindWindowEx(p->Wnd.Game, NULL, NULL, NULL);
-			p->Wnd.Pic = ::FindWindowEx(p->Wnd.Pic, NULL, NULL, NULL);
+			p->Wnd.Login = m_pButton->FindLoginWnd(p->Wnd.Game);
+			::printf("魔域已打开:%08X %08X.\n", (DWORD)hWnd, (HWND)p->Wnd.Login);
 
-			Sleep(500);
+			Sleep(2500);
 			GoLoginUI(p);
-			Sleep(1500);
+			Sleep(3500);
 
 			DbgPrint("%hs Say 选择游戏区\n", p->Name);
 			LOGVARP2(log, "c6", L"%hs Say 选择游戏区", p->Name);
-			SelectServer(p->Wnd.Pic); // 选择
+			SelectServer(p); // 选择
 			Sleep(3500);
 
 			DbgPrint("%hs Say 输入账号密码\n", p->Name);
@@ -514,9 +520,6 @@ void Game::Login(Account* p, int index)
 					}
 				}
 
-#if 0
-				if (p->Wnd.PosX && m_pGameData->FormatCoor(p->Wnd.PosX)) {
-#else
 				DWORD64 h3drole = (DWORD64)EnumModuleBaseAddr(p->GamePid, L"3drole.dll");
 				HANDLE hProcess = ::OpenProcess(PROCESS_ALL_ACCESS, FALSE, p->GamePid);
 				DWORD coor[2] = { 0, 0 };
@@ -527,7 +530,7 @@ void Game::Login(Account* p, int index)
 					p->Process = hProcess;
 					p->Addr.CoorX = h3drole + ADDR_COOR_X_OFFSET;
 					p->Addr.CoorY = h3drole + ADDR_COOR_Y_OFFSET;
-#endif
+
 					int tl = GetTickCount64() - s + 1500;
 					DbgPrint("%hs Say 已进入, 用时%d秒\n", p->Name, tl / 1000);
 					LOGVARP2(log, "green", L"%hs Say 已进入, 用时%d秒", p->Name, tl/1000);
@@ -560,16 +563,14 @@ void Game::Login(Account* p, int index)
 							m_pGameProc->InXuKong(p);
 							Sleep(8000);
 							m_pGameProc->LeaveXuKong(p);
-							Sleep(1000);
+							Sleep(5000);
 
-							int s = 0;
+							int s = 3;
 							for (; s > 0; s--) {
-								DbgPrint("%d 秒后去副本门口\n", s);
-								LOGVARP2(log, "c6", L"%d 秒后去副本门口", s);
+								LOGVARP2(log, "c6", L"%d 去商店.", s);
+								m_pGame->m_pItem->GoShop();
 								Sleep(1000);
 							}
-
-							m_pGameProc->GoFBDoor(p, 5); // 去门口
 
 							s = 0;
 							for (; s > 0; s--) {
@@ -588,148 +589,6 @@ void Game::Login(Account* p, int index)
 					p->Addr.CoorX = 0;
 					p->Addr.CoorY = 0;
 					SetReady(p, 1);
-
-#if 0
-					int no = index - 1;
-					memcpy(m_pShareTeam->users[no], p->Name, sizeof(p->Name));
-					m_pShareTeam->canin[no] = 0;
-					m_pShareTeam->result[no] = 0xff;
-					m_pShareTeam->account[no] = p;
-
-					if (m_iLoginCount > 1 && index == m_iLoginCount) { // 队长
-						m_pLeader = p; // 队长的
-						p->IsLeadear = 1;
-						memcpy(m_pShareTeam->leader, p->Name, sizeof(p->Name));
-						m_pShareTeam->result[no] = 0;
-					}
-
-					if (p->IsBig) {
-						m_pGameData->GetRoleByPid(p, p->Role, sizeof(p->Role));
-						memcpy(m_pShareTeam->players[no], p->Role, sizeof(p->Role));
-						m_pShareTeam->canin[no] = 1;
-						::printf("Big RoleB:%s\n", p->Role);
-					}
-
-					if (!p->IsBig) {
-#if 0
-						Inject(p->GamePid, L"C:\\Users\\12028\\Desktop\\工具\\Vs\\3dmark.dll", L"3dmark.dll");
-#else
-						wchar_t dll[MAX_PATH];
-						::wsprintf(dll, L"%hs\\KGMusic\\3dmark.dll", m_chPath);
-						//Inject(p->GamePid, dll, L"3dmark.dll");
-						LOGVARP2(log, "c6", L"%ws", dll);
-#endif
-					}
-					if (m_pLeader && index == m_iLoginCount) {
-						DbgPrint("------------------------------\n等待组队完成\n");
-						LOG2(L"\n等待组队完成", "c6");
-						Sleep(5000);
-
-						while (true) {
-							int big_index = -1;
-							bool result = true;
-							for (int i = 0; i < 4; i++) {
-								Account* ac = m_pShareTeam->account[i];
-								if (ac && ac->IsBig) {
-									big_index = i;
-									if ((m_pShareTeam->result[i] & 0xf0) == 0x80) {
-										m_pShareTeam->result[i] &= 0x0f;
-									}
-								}
-
-								if (m_pShareTeam->result[i] & 0xf0) {
-									result = false;
-									break;
-								}
-							}
-							if (result) {
-								DbgPrint("组队结果:\n");
-								LOG2(L"组队结果:", "c0");
-								for (int i = 0; i < 4; i++) {
-									if (m_pShareTeam->result[i] == 0)
-										continue;
-
-									if (m_pShareTeam->result[i] & 0x01) {
-										if (i == big_index) {
-											DbgPrint("角色 %hs 准备入队了\n", m_pShareTeam->players[i]);
-											LOGVARP2(log, "green", L"角色 %hs 准备入队了", m_pShareTeam->players[i]);
-
-											m_pGameProc->InTeam(m_pShareTeam->account[i]);
-										}
-										else {
-											DbgPrint("角色 %hs 已入了\n", m_pShareTeam->players[i]);
-											LOGVARP2(log, "green", L"角色 %hs 已入了", m_pShareTeam->players[i]);
-										}
-									}
-									else {
-										DbgPrint("角色 %hs 找不到\n", m_pShareTeam->players[i]);
-										LOGVARP2(log, "red", L"角色 %hs 找不到", m_pShareTeam->players[i]);
-									}
-
-									m_pShareTeam->result[i] = 0;
-								}
-								break;
-							}
-
-							Sleep(1000);
-						}
-					}
-#endif
-
-#if 0
-					if (index < m_iLoginCount || m_iLoginCount == 1) {
-						char role[32];
-						::memset(role, 0, sizeof(role));
-						::GetWindowTextA(p->Wnd.Role, role, sizeof(role));
-						memcpy(m_pShareTeam->players[index - 1], role, sizeof(role));
-
-						m_pShareTeam->account[index - 1] = p;
-						//::printf("角色%hs\n\n", role);
-					}
-					else { // 最后一个组队
-						m_pLeader = p; // 队长的
-						p->IsLeadear = 1; // 队长
-#if 0
-						InjectDll(p->GamePid, L"C:\\Users\\12028\\Desktop\\工具\\Vs\\Team.dll", L"Team.dll", true);
-#else
-						wchar_t dll[MAX_PATH];
-						::wsprintf(dll, L"%hs\\files\\Team.dll", m_chPath);
-						BOOL r = InjectDll(p->GamePid, dll, L"Team.dll", true);
-						LOGVARP2(log, "c6", L"%ws %d", dll, r);
-#endif
-					}
-
-					if (m_pLeader && index == m_iLoginCount) { // 最后一个上的
-						DbgPrint("------------------------------\n等待组队完成\n");
-						LOG2(L"\n等待组队完成", "c6");
-						m_pShareTeam->flag = -1;
-						while (m_pShareTeam->flag == -1) {
-							Sleep(500);
-						}
-						m_pShareTeam->flag = 0;
-
-						Sleep(1000);
-						DbgPrint("组队结果:\n");
-						LOG2(L"组队结果:", "c0");
-						for (int i = 0; i < 4; i++) {
-							if (!m_pShareTeam->players[i][0])
-								break;
-
-							if (m_pShareTeam->result[i]) {
-								DbgPrint("角色 %hs 准备入队了\n", m_pShareTeam->players[i]);
-								LOGVARP2(log, "green", L"角色 %hs 准备入队了", m_pShareTeam->players[i]);
-
-								m_pGameProc->InTeam(m_pShareTeam->account[i]);
-							}
-							else {
-								DbgPrint("角色 %hs 找不到\n", m_pShareTeam->players[i]);
-								LOGVARP2(log, "red", L"角色 %hs 找不到", m_pShareTeam->players[i]);
-							}
-						}
-						::memset(m_pShareTeam->players, 0, sizeof(m_pShareTeam->players));
-						::memset(m_pShareTeam->result,  0, sizeof(m_pShareTeam->result));
-					}
-#endif
 
 					CloseHandle(hProcess);
 					break;
@@ -807,29 +666,41 @@ HWND Game::FindNewGameWnd(DWORD* pid)
 // 进入到登录界面
 void Game::GoLoginUI(Account* p)
 {
-	Sleep(1500);
-	LeftClick(p->Wnd.Pic, 510, 550); // 进入正式版
+	Sleep(2500);
+#if 0
+	m_pButton->ClickPic(p->Wnd.Game, p->Wnd.Pic, 510, 550, 100);
+#else
+	LeftClick(p->Wnd.Login, 510, 550); // 进入正式版
+#endif
 }
 
 // 选择游戏服务
-void Game::SelectServer(HWND hWnd)
+void Game::SelectServer(Account* p)
 {
 	Sleep(150);
 
 	RECT rect;
-	::GetWindowRect(hWnd, &rect);
+	::GetWindowRect(p->Wnd.Pic, &rect);
 
 	int x, y;
 	GetSerBigClickPos(x, y);
 	::SetCursorPos(rect.left + x, rect.top + y);
 	Sleep(300);
-	LeftClick(hWnd, x, y); // 选择大区
+#if 1
+	LeftClick(p->Wnd.Login, x, y);
+#else
+	m_pButton->ClickPic(p->Wnd.Game, p->Wnd.Pic, x, y, 100); // 选择大区
+#endif
 	Sleep(1500);
 
 	GetSerSmallClickPos(x, y);
 	::SetCursorPos(rect.left + x, rect.top + y);
 	Sleep(300);
-	LeftClick(hWnd, x, y); // 选择小区
+#if 1
+	LeftClick(p->Wnd.Login, x, y);
+#else
+	m_pButton->ClickPic(p->Wnd.Game, p->Wnd.Pic, x, y, 100); // 选择小区
+#endif
 }
 
 // 获取大区点击坐标
@@ -839,7 +710,7 @@ void Game::GetSerBigClickPos(int& x, int& y)
 	if (m_pGameConf->m_stFGZSer.Length == 0) {
 		Explode arr("-", m_Setting.SerBig);
 		//printf("arr:%d-%d\n", arr.GetValue2Int(0), arr.GetValue2Int(1));
-		SET_VAR2(x, arr.GetValue2Int(0) * vx - vx + 125, y, arr.GetValue2Int(1) * vy - vy + 135);
+		SET_VAR2(x, arr.GetValue2Int(0) * vx - vx + 125, y, arr.GetValue2Int(1) * vy - vy + 138);
 	}
 	else {
 		DWORD index = m_pGameConf->m_stFGZSer.Index;
@@ -847,7 +718,7 @@ void Game::GetSerBigClickPos(int& x, int& y)
 
 		Explode arr("-", a[0]);
 		//printf("arr:%d-%d\n", arr.GetValue2Int(0), arr.GetValue2Int(1));
-		SET_VAR2(x, arr.GetValue2Int(0) * vx - vx + 125, y, arr.GetValue2Int(1) * vy - vy + 135);
+		SET_VAR2(x, arr.GetValue2Int(0) * vx - vx + 125, y, arr.GetValue2Int(1) * vy - vy + 138);
 	}
 	
 	//printf("x:%d y:%d\n", x, y);
@@ -883,7 +754,11 @@ void Game::InputUserPwd(Account* p, bool input_user)
 	int i;
 	if (input_user) {
 		Sleep(2000);
-		LeftClick(p->Wnd.Pic, 300, 265); // 点击帐号框
+#if 1
+		LeftClick(p->Wnd.Login, 300, 265); // 点击帐号框
+#else
+		m_pButton->ClickPic(p->Wnd.Game, p->Wnd.Pic, 300, 265, 100);
+#endif
 		Sleep(1000);
 
 		char save_name[32] = { 0 };
@@ -912,14 +787,24 @@ void Game::InputUserPwd(Account* p, bool input_user)
 		}
 	}
 
-	LeftClick(p->Wnd.Pic, 300, 305); // 点击密码框
+#if 1
+	LeftClick(p->Wnd.Login, 300, 305); // 点击密码框
+#else
+	m_pButton->ClickPic(p->Wnd.Game, p->Wnd.Pic, 300, 305, 100);
+#endif
+
 	Sleep(1000);
 	for (i = 0; i < strlen(p->Password); i++) {
 		Keyborad(p->Password[i]);
 		Sleep(350);
 	}
 
-	LeftClick(p->Wnd.Pic, 265, 430); // 进入
+
+#if 1
+	LeftClick(p->Wnd.Login, 265, 430);
+#else
+	m_pButton->ClickPic(p->Wnd.Game, p->Wnd.Pic, 265, 430, 100); // 进入
+#endif
 }
 
 // 左击
@@ -1287,6 +1172,7 @@ int Game::CheckLoginTimeOut()
 			m_nVerifyError = 0;
 		}
 		m_nVerifyTime = now_time;
+
 	}
 
 	int count = 0;
